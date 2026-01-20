@@ -1,0 +1,159 @@
+// Configuration and Parameters
+// All tunable parameters for the Koi Pond
+
+export const params = {
+    fishCount: 20,
+    sizeMin: 6,
+    sizeMax: 15,
+    spineCount: 14,
+    fatness: 1.0,
+    tailTaper: 1.5,
+    finScale: 1.0, 
+    speedScale: 1.0, 
+    waveSpeedBase: 0.005,
+    waveSpeedMult: 0.04,
+    waveAmpMax: 0.05,
+    waveAmpGain: 0.01,
+    distConstraint: 0.35,
+    turnForce: 0.025,
+    waterColor1: "#1a2a3a",
+    waterColor2: "#0f1820",
+    rainMode: false,
+    stoneDensity: 100, 
+    stoneSizeMin: 15,
+    stoneSizeMax: 35,
+    pebbleColors: ["#5a4d33", "#8c7b60", "#2f2818"], 
+    padDensity: 15,
+    padFormation: 'random',
+    padSizeMin: 25,
+    padSizeMax: 55,
+    padSplitSize: 0.5, 
+    padVeinCount: 5,   
+    padColor: "#4caf50", 
+    flowerChance: 0.2,
+    flowerType: 'mixed',
+    flowerColors: ["#ffccd5", "#ffffff", "#ff69b4"],
+    frogChance: 0.1,
+    foodSpawnRate: 0.01, 
+    foodSize: 4,
+    foodColor: "#eeba7b",
+    targetFPS: 60,
+    
+    // Fish reproduction
+    birthMode: 'hybrid',  // 'proximity', 'random', or 'hybrid'
+    birthChance: 0.008,
+    maxFishCount: 50,
+    birthCooldown: 180,
+    
+    // Predator settings
+    predatorCount: 1,
+    predatorSizeMin: 20,
+    predatorSizeMax: 35,
+    predatorHuntSuccessRate: 0.4,
+    predatorDetectionRange: 150,
+    predatorAttackSpeed: 5.0,
+    predatorRestTime: 300,
+    predatorColor: "#1a3d2e",
+    
+    // Grass settings
+    grassDensity: 30,
+    grassHeightMin: 20,
+    grassHeightMax: 45,
+    grassColor: "#2d5016",
+    grassSwaySpeed: 0.006,
+    grassSwayAmount: 0.08,
+    
+    // === ADVANCED SETTINGS ===
+    
+    // Fish Physics Advanced
+    fishBaseSpeedMin: 1.5,
+    fishBaseSpeedMax: 2.5,
+    fishThicknessHead: 0.4,
+    fishThicknessNeck: 0.35,
+    fishThicknessTaper: 0.75,
+    fishThicknessMin: 0.12,
+    fishThicknessPow: 0.9,
+    fishWavePhaseOffset: 0.35,
+    fishInitialBirthCooldown: 60,
+    fishFleeForceMultiplier: 4,
+    fishInitialSwimTimer: 100,
+    
+    // Food Spawning Advanced
+    foodSizeVariationMin: 0.9,
+    foodSizeVariationMax: 1.1,
+    foodVelocityMin: -0.1,
+    foodVelocityMax: 0.1,
+    
+    // Predator Advanced
+    predatorBaseSpeed: 0.8,
+    predatorMaxForceLurking: 0.015,
+    predatorMaxForceAttacking: 0.15,
+    predatorMaxForceResting: 0.01,
+    predatorWanderProbability: 0.02,
+    predatorWanderMagnitude: 0.3,
+    predatorDetectingSpeedMult: 0.5,
+    predatorDetectingSeekMult: 0.3,
+    predatorDetectionTime: 30,
+    predatorAttackingSeekMult: 3.0,
+    predatorCatchDistance: 0.8,
+    predatorEatingDuration: 60,
+    predatorEatingSpeed: 0.2,
+    predatorRestingSpeedMult: 0.3,
+    predatorRestTimeFailMult: 0.5,
+    predatorRestTimeGiveUpMult: 0.3,
+    predatorMaxChaseDistMult: 2.0,
+    predatorAttackWaveMult: 1.5,
+    predatorBoundaryMargin: 80,
+    
+    // Lily Pad Advanced
+    padHueVariationMin: -5,
+    padHueVariationMax: 5,
+    padNotchAngleMin: 0.5,
+    padNotchAngleMax: 1.0,
+    padVeinLengthRatio: 0.85,
+    flowerMixedLotusProb: 0.5,
+    flowerMixedLilyProb: 0.8,
+    lotusOuterPetalCount: 8,
+    lotusOuterPetalRadius: 12,
+    lotusOuterPetalWidth: 10,
+    lotusOuterPetalHeight: 5,
+    lotusCenterRadius: 5,
+    lilyPetalCount: 12,
+    lilyCenterRadius: 3,
+    
+    // Frog Advanced
+    frogDiveDuration: 20,
+    frogJumpLegLength: 15,
+    frogEyeSizeRatio: 0.4,
+    
+    // Environment Advanced
+    stoneDensityBase: 15000,
+    padClusterCountMin: 2,
+    padClusterCountMax: 5,
+    padRingRadiusMult: 0.35,
+    padRingVariationMin: -40,
+    padRingVariationMax: 40,
+    padClumpedOffsetRange: 180,
+    
+    // Ripple Effects
+    rippleLungeRadius: 5,
+    rippleLungeMaxRadius: 60,
+    rippleLungeSpeed: 2,
+    rippleKillMainRadius: 10,
+    rippleKillMainMaxRadius: 150,
+    rippleKillMainSpeed: 3,
+    rippleKillSecondaryRadius: 5,
+    rippleKillSecondaryMaxRadius: 100,
+    rippleKillSecondarySpeed: 4,
+    rippleFailRadius: 5,
+    rippleFailMaxRadius: 80,
+    rippleFailSpeed: 2,
+    
+    // Rendering & Performance
+    shadowUpdateFPS: 30,
+    shadowOffsetX: 20,
+    shadowOffsetY: 20
+};
+
+// Render culling margin
+export const CULL_MARGIN = 100;
