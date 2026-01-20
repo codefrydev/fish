@@ -61,20 +61,20 @@ canvas {
 
 /* --- SMART MENU BUTTON --- */
 #menu-btn {
-    position: absolute;
+    position: fixed;
     top: 20px;
     right: 20px;
     width: 50px;
     height: 50px;
     cursor: pointer;
-    z-index: 1000;
-    transition: transform 0.3s ease;
+    z-index: 10000;
     filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
-    animation: float 6s ease-in-out infinite;
+    animation: spinAndFloat 8s linear infinite;
+    pointer-events: auto;
 }
 
 #menu-btn:hover {
-    transform: scale(1.1) rotate(10deg);
+    animation: spinAndFloatHover 6s linear infinite;
 }
 
 /* The Leaf */
@@ -88,7 +88,6 @@ canvas {
         55% 55%,
         0% 100%
     );
-    transform: rotate(-45deg);
     box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
     border: 1px solid rgba(255,255,255,0.2);
 }
@@ -116,14 +115,25 @@ canvas {
     border-radius: 50%;
 }
 
-@keyframes float {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    50% { transform: translateY(-5px) rotate(2deg); }
+@keyframes spinAndFloat {
+    0% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-6px) rotate(90deg); }
+    50% { transform: translateY(-8px) rotate(180deg); }
+    75% { transform: translateY(-6px) rotate(270deg); }
+    100% { transform: translateY(0px) rotate(360deg); }
+}
+
+@keyframes spinAndFloatHover {
+    0% { transform: translateY(0px) rotate(0deg) scale(1.15); }
+    25% { transform: translateY(-6px) rotate(90deg) scale(1.15); }
+    50% { transform: translateY(-8px) rotate(180deg) scale(1.15); }
+    75% { transform: translateY(-6px) rotate(270deg) scale(1.15); }
+    100% { transform: translateY(0px) rotate(360deg) scale(1.15); }
 }
 
 /* --- CONTROL PANEL --- */
 #controls {
-    position: absolute;
+    position: fixed;
     top: 80px;
     right: 20px;
     width: 280px;
@@ -137,6 +147,8 @@ canvas {
     overflow-y: auto;
     border: 1px solid rgba(255,255,255,0.1);
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 9999;
+    pointer-events: auto;
     
     /* Hidden state */
     display: none;

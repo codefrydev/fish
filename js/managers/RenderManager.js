@@ -65,27 +65,114 @@ export function resize(initEnvironmentCallback) {
     }
 }
 
-// Render static background (water gradient + stones)
+// Render animated water caustics (light patterns on pond floor from above)
+function renderAnimatedCaustics(ctx, w, h, time) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.12;
+    
+    // Caustic network - light refracting through water surface ripples onto floor
+    const layers = 2;
+    for (let layer = 0; layer < layers; layer++) {
+        const speed = 0.0004 * (layer + 1);
+        const scale = 180 + layer * 60;
+        const phase = layer * Math.PI;
+        
+        // Organic movement pattern
+        const offsetX = Math.sin(time * speed + phase) * 25;
+        const offsetY = Math.cos(time * speed * 0.7 + phase) * 25;
+        
+        // Draw caustic network across pond floor
+        for (let x = -scale; x < w + scale; x += scale) {
+            for (let y = -scale; y < h + scale; y += scale) {
+                const cellX = x + offsetX + Math.sin(time * speed * 1.5 + y * 0.008) * 40;
+                const cellY = y + offsetY + Math.cos(time * speed * 1.5 + x * 0.008) * 40;
+                
+                // Distance from center affects intensity (shallower = brighter)
+                const distFromCenter = Math.sqrt(Math.pow(cellX - w/2, 2) + Math.pow(cellY - h/2, 2));
+                const centerFactor = 1 - Math.min(distFromCenter / (Math.max(w, h) * 0.6), 1) * 0.4;
+                
+                // Pulsating caustic blob
+                const intensity = (0.35 + Math.sin(time * speed * 2.5 + x * 0.015 + y * 0.015) * 0.25) * centerFactor;
+                
+                const causticGradient = ctx.createRadialGradient(
+                    cellX, cellY, 0,
+                    cellX, cellY, scale * 0.55
+                );
+                
+                causticGradient.addColorStop(0, `rgba(230, 245, 255, ${intensity * 0.5})`);
+                causticGradient.addColorStop(0.35, `rgba(210, 235, 250, ${intensity * 0.3})`);
+                causticGradient.addColorStop(0.7, `rgba(190, 225, 245, ${intensity * 0.1})`);
+                causticGradient.addColorStop(1, 'rgba(180, 220, 240, 0)');
+                
+                ctx.fillStyle = causticGradient;
+                ctx.beginPath();
+                ctx.arc(cellX, cellY, scale * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+    }
+    
+    ctx.restore();
+}
+
+// Render static background (water gradient + stones) - TOP-DOWN VIEW
 export function renderStaticBackground() {
     const w = canvas.width;
     const h = canvas.height;
     
-    let grd = bgCtx.createLinearGradient(0, 0, 0, h);
-    grd.addColorStop(0, params.waterColor1);
-    grd.addColorStop(1, params.waterColor2);
-    bgCtx.fillStyle = grd;
+    // Base water color (uniform since we're looking down)
+    bgCtx.fillStyle = params.waterColor2;
     bgCtx.fillRect(0, 0, w, h);
+    
+    // Subtle depth variation from center (shallow) to edges (deeper)
+    // This represents the natural bowl shape of a pond
+    let rad = Math.max(w, h);
+    let depthGradient = bgCtx.createRadialGradient(w/2, h/2, rad * 0.2, w/2, h/2, rad * 0.7);
+    depthGradient.addColorStop(0, params.waterColor1); // Shallow center
+    depthGradient.addColorStop(0.6, params.waterColor2); // Transition
+    depthGradient.addColorStop(1, params.waterColor2); // Deep edges
+    bgCtx.fillStyle = depthGradient;
+    bgCtx.fillRect(0, 0, w, h);
+    
+    // Suspended particles throughout (uniform distribution from top view)
+    bgCtx.save();
+    for (let i = 0; i < 100; i++) {
+        const px = rand(0, w);
+        const py = rand(0, h);
+        const size = rand(0.5, 1.8);
+        const opacity = rand(0.03, 0.1);
+        
+        bgCtx.beginPath();
+        bgCtx.arc(px, py, size, 0, Math.PI * 2);
+        bgCtx.fillStyle = `rgba(200, 220, 230, ${opacity})`;
+        bgCtx.fill();
+    }
+    bgCtx.restore();
 
-    // Draw stones on background
+    // Draw stones on pond floor
     if (entities && entities.stones) {
         entities.stones.forEach(s => s.draw(bgCtx));
     }
     
-    let rad = Math.max(w, h);
-    let radial = bgCtx.createRadialGradient(w/2, h/2, rad * 0.4, w/2, h/2, rad * 0.8);
-    radial.addColorStop(0, "rgba(0,0,0,0)");
-    radial.addColorStop(1, "rgba(0,0,0,0.6)");
-    bgCtx.fillStyle = radial;
+    // Subtle overall lighting gradient (sun overhead, slightly from one side)
+    const lightAngle = Math.PI / 6; // Sun slightly off-center
+    const lightX = w/2 + Math.cos(lightAngle) * w * 0.3;
+    const lightY = h/2 + Math.sin(lightAngle) * h * 0.3;
+    
+    const overheadLight = bgCtx.createRadialGradient(lightX, lightY, 0, lightX, lightY, rad);
+    overheadLight.addColorStop(0, 'rgba(200, 230, 255, 0.08)');
+    overheadLight.addColorStop(0.4, 'rgba(180, 220, 245, 0.04)');
+    overheadLight.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    bgCtx.fillStyle = overheadLight;
+    bgCtx.fillRect(0, 0, w, h);
+    
+    // Darker edges (pond edges / shadow from banks)
+    let edgeVignette = bgCtx.createRadialGradient(w/2, h/2, rad * 0.4, w/2, h/2, rad * 0.85);
+    edgeVignette.addColorStop(0, "rgba(0,0,0,0)");
+    edgeVignette.addColorStop(0.7, "rgba(0,0,0,0.1)");
+    edgeVignette.addColorStop(1, "rgba(0,0,0,0.45)");
+    bgCtx.fillStyle = edgeVignette;
     bgCtx.fillRect(0, 0, w, h);
 }
 
@@ -117,6 +204,9 @@ export function animate(currentTime, addRippleFn) {
     ctx.clearRect(0, 0, w, h);
     if(bgCanvas.width > 0 && bgCanvas.height > 0)
         ctx.drawImage(bgCanvas, 0, 0);
+    
+    // Animated water caustic patterns (light refracting through water surface)
+    renderAnimatedCaustics(ctx, w, h, currentTime);
     
     // Draw grass (animated, so must be in main loop)
     grass.forEach(g => g.draw(ctx, currentTime));
@@ -219,7 +309,8 @@ export function animate(currentTime, addRippleFn) {
         const alive = updatePooledRipple(ripple, dt);
         // Only draw if in view (use ripple radius for margin)
         if (isInView(ripple.x, ripple.y, CULL_MARGIN + ripple.radius)) {
-            drawPooledRipple(ripple, ctx);
+            // Pass all ripples for interference calculations
+            drawPooledRipple(ripple, ctx, activeRipples);
         }
         if (!alive) {
             ripplePool.release(ripple);
