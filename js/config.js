@@ -152,7 +152,51 @@ export const params = {
     // Rendering & Performance
     shadowUpdateFPS: 30,
     shadowOffsetX: 20,
-    shadowOffsetY: 20
+    shadowOffsetY: 20,
+    
+    // Fish 3D Shading
+    fishBodyShadeDark: 0.4,
+    fishBodyShadeLight: 0.2,
+    fishBodySolidAlpha: 0.45,
+    fishPatternEdgeAlpha: 0.15,
+    fishSpecularOuterAlpha: 0.16,
+    fishSpecularInnerAlpha: 0.3,
+    fishSpecularWidth: 0.22,
+    fishSpecularInnerWidth: 0.09,
+    fishFinShadeLight: 0.25,
+    fishFinShadeMid: 0.08,
+    fishFinShadeDark: 0.25,
+    fishFinAlphaBase: 0.55,
+    fishFinAlphaMid: 0.35,
+    fishFinAlphaEdge: 0.15,
+    fishOutlineDarken: 0.5,
+    fishOutlineAlpha: 0.3,
+    fishOutlineWidth: 0.06,
+    fishEyeSizeRatio: 2.2,
+    fishEyeIrisRatio: 0.65,
+    fishEyePupilRatio: 0.45,
+    
+    // Predator 3D Shading
+    predatorBodyShadeDark: 0.4,
+    predatorBodyShadeLight: 0.15,
+    predatorBodySolidAlpha: 0.5,
+    predatorSpecularOuterAlpha: 0.12,
+    predatorSpecularInnerAlpha: 0.25,
+    predatorSpecularWidth: 0.2,
+    predatorSpecularInnerWidth: 0.08,
+    predatorFinShadeLight: 0.2,
+    predatorFinShadeMid: 0.05,
+    predatorFinShadeDark: 0.25,
+    predatorFinAlphaBase: 0.4,
+    predatorFinAlphaMid: 0.25,
+    predatorFinAlphaEdge: 0.1,
+    predatorOutlineDarken: 0.6,
+    predatorOutlineAlpha: 0.35,
+    predatorOutlineWidth: 0.07,
+    predatorEyeSizeRatio: 2.0,
+    predatorEyeIrisRatio: 0.6,
+    predatorEyePupilRatio: 0.5,
+    predatorEyeAttackGlowAlpha: 0.85
 };
 
 // Render culling margin

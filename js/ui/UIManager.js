@@ -119,7 +119,23 @@ export function initUI(callbacks) {
         'rippleKillMainRadius', 'rippleKillMainMaxRadius', 'rippleKillMainSpeed',
         'rippleKillSecondaryRadius', 'rippleKillSecondaryMaxRadius', 'rippleKillSecondarySpeed',
         'rippleFailRadius', 'rippleFailMaxRadius', 'rippleFailSpeed',
-        'shadowUpdateFPS', 'shadowOffsetX', 'shadowOffsetY'
+        'shadowUpdateFPS', 'shadowOffsetX', 'shadowOffsetY',
+        'fishBodyShadeDark', 'fishBodyShadeLight', 'fishBodySolidAlpha',
+        'fishPatternEdgeAlpha',
+        'fishSpecularOuterAlpha', 'fishSpecularInnerAlpha',
+        'fishSpecularWidth', 'fishSpecularInnerWidth',
+        'fishFinShadeLight', 'fishFinShadeMid', 'fishFinShadeDark',
+        'fishFinAlphaBase', 'fishFinAlphaMid', 'fishFinAlphaEdge',
+        'fishOutlineDarken', 'fishOutlineAlpha', 'fishOutlineWidth',
+        'fishEyeSizeRatio', 'fishEyeIrisRatio', 'fishEyePupilRatio',
+        'predatorBodyShadeDark', 'predatorBodyShadeLight', 'predatorBodySolidAlpha',
+        'predatorSpecularOuterAlpha', 'predatorSpecularInnerAlpha',
+        'predatorSpecularWidth', 'predatorSpecularInnerWidth',
+        'predatorFinShadeLight', 'predatorFinShadeMid', 'predatorFinShadeDark',
+        'predatorFinAlphaBase', 'predatorFinAlphaMid', 'predatorFinAlphaEdge',
+        'predatorOutlineDarken', 'predatorOutlineAlpha', 'predatorOutlineWidth',
+        'predatorEyeSizeRatio', 'predatorEyeIrisRatio', 'predatorEyePupilRatio',
+        'predatorEyeAttackGlowAlpha'
     ];
 
     inputs.forEach(key => {

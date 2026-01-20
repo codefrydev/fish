@@ -170,12 +170,18 @@ canvas {
 
 .control-group {
     margin-bottom: 15px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    padding-bottom: 15px;
+    border-bottom: none;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+}
+
+.control-group:nth-of-type(even) {
+    background: rgba(255,255,255,0.06);
 }
 
 .control-group:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
 }
 
 .control-label {
@@ -350,5 +356,14 @@ h3 {
     text-transform: uppercase; 
     letter-spacing: 1px; 
     border-bottom: 1px solid rgba(255,255,255,0.1); 
-    padding-bottom: 6px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
+}
+
+h4 {
+    margin: 0 0 8px 0;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.05);
 }

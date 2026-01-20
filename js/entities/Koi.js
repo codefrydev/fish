@@ -19,6 +19,46 @@ export function setAddRippleFunction(fn) {
     addRippleFn = fn;
 }
 
+function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+}
+
+function hexToRgb(hex) {
+    const clean = hex.replace('#', '');
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    return { r, g, b };
+}
+
+function rgbToHex({ r, g, b }) {
+    const toHex = (v) => v.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function mixColors(a, b, t) {
+    const ca = hexToRgb(a);
+    const cb = hexToRgb(b);
+    const k = clamp01(t);
+    return rgbToHex({
+        r: Math.round(ca.r + (cb.r - ca.r) * k),
+        g: Math.round(ca.g + (cb.g - ca.g) * k),
+        b: Math.round(ca.b + (cb.b - ca.b) * k)
+    });
+}
+
+function adjustColor(hex, amount) {
+    if (amount >= 0) {
+        return mixColors(hex, '#ffffff', clamp01(amount));
+    }
+    return mixColors(hex, '#000000', clamp01(-amount));
+}
+
+function rgbaFromHex(hex, alpha) {
+    const { r, g, b } = hexToRgb(hex);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export class Koi {
     constructor(x, y) {
         this.pos = new Vector(x, y);
@@ -401,7 +441,30 @@ export class Koi {
 
         ctx.save();
         this.drawBodyPathOnContext(ctx, leftPoints, rightPoints, head, headAngle);
-        ctx.fillStyle = this.baseColor;
+        let maxRadius = 0;
+        for (const s of this.spine) {
+            if (s.size > maxRadius) maxRadius = s.size;
+        }
+        const midIndex = Math.floor(this.spineLength * 0.4);
+        const midPoint = this.spine[midIndex].pos;
+        const perpAngle = headAngle + Math.PI / 2;
+        const gradRadius = maxRadius * 1.25;
+        const gx0 = midPoint.x + Math.cos(perpAngle) * gradRadius;
+        const gy0 = midPoint.y + Math.sin(perpAngle) * gradRadius;
+        const gx1 = midPoint.x - Math.cos(perpAngle) * gradRadius;
+        const gy1 = midPoint.y - Math.sin(perpAngle) * gradRadius;
+        
+        const bodyGradient = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
+        const bodyDark = params.fishBodyShadeDark;
+        const bodyLight = params.fishBodyShadeLight;
+        bodyGradient.addColorStop(0, adjustColor(this.baseColor, -bodyDark));
+        bodyGradient.addColorStop(0.45, adjustColor(this.baseColor, bodyLight * 0.5));
+        bodyGradient.addColorStop(0.55, adjustColor(this.baseColor, bodyLight));
+        bodyGradient.addColorStop(1, adjustColor(this.baseColor, -bodyDark * 0.75));
+        ctx.fillStyle = bodyGradient;
+        ctx.fill();
+        
+        ctx.fillStyle = rgbaFromHex(this.baseColor, params.fishBodySolidAlpha);
         ctx.fill();
         
         ctx.clip(); 
@@ -410,13 +473,56 @@ export class Koi {
             let idx = Math.floor(spot.t * (this.spineLength-1));
             idx = Math.max(0, Math.min(idx, this.spineLength-1));
             let s = this.spine[idx];
+            const spotX = s.pos.x + spot.offset;
+            const spotY = s.pos.y + spot.offset;
+            const spotGradient = ctx.createRadialGradient(
+                spotX, spotY, 0,
+                spotX, spotY, spot.radius
+            );
+            spotGradient.addColorStop(0, adjustColor(spot.color, 0.2));
+            spotGradient.addColorStop(0.55, spot.color);
+            spotGradient.addColorStop(1, rgbaFromHex(spot.color, params.fishPatternEdgeAlpha));
             ctx.beginPath();
-            ctx.arc(s.pos.x + spot.offset, s.pos.y + spot.offset, spot.radius, 0, Math.PI*2);
-            ctx.fillStyle = spot.color;
+            ctx.arc(spotX, spotY, spot.radius, 0, Math.PI*2);
+            ctx.fillStyle = spotGradient;
             ctx.fill();
         }
 
+        const lightDirX = 0.4;
+        const lightDirY = -0.9;
+        const lightLen = Math.hypot(lightDirX, lightDirY) || 1;
+        const lx = lightDirX / lightLen;
+        const ly = lightDirY / lightLen;
+        const highlightOffset = this.size * 0.18;
+        
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < this.spineLength - 1; i++) {
+            const s = this.spine[i];
+            const hx = s.pos.x + lx * highlightOffset * (s.size / maxRadius);
+            const hy = s.pos.y + ly * highlightOffset * (s.size / maxRadius);
+            if (i === 0) ctx.moveTo(hx, hy);
+            else ctx.lineTo(hx, hy);
+        }
+        ctx.strokeStyle = `rgba(255, 255, 255, ${params.fishSpecularOuterAlpha})`;
+        ctx.lineWidth = this.size * params.fishSpecularWidth;
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${params.fishSpecularInnerAlpha})`;
+        ctx.lineWidth = this.size * params.fishSpecularInnerWidth;
+        ctx.stroke();
+        ctx.restore();
+
         ctx.restore(); 
+
+        ctx.save();
+        this.drawBodyPathOnContext(ctx, leftPoints, rightPoints, head, headAngle);
+        ctx.strokeStyle = rgbaFromHex(adjustColor(this.baseColor, -params.fishOutlineDarken), params.fishOutlineAlpha);
+        ctx.lineWidth = Math.max(1, this.size * params.fishOutlineWidth);
+        ctx.stroke();
+        ctx.restore();
 
         this.drawDorsalFinOnContext(ctx, false);
         this.drawFinsOnContext(ctx, head, headAngle, true, false);
@@ -496,39 +602,90 @@ export class Koi {
         c.translate(shoulder.pos.x, shoulder.pos.y);
         c.rotate(a);
 
-        if (!isShadow) {
-            c.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        }
+        const finBase = adjustColor(this.baseColor, params.fishFinShadeLight);
+        const finMid = adjustColor(this.baseColor, params.fishFinShadeMid);
+        const finEdge = adjustColor(this.baseColor, -params.fishFinShadeDark);
+        const makeFinGradient = (x0, y0, x1, y1) => {
+            const g = c.createLinearGradient(x0, y0, x1, y1);
+            g.addColorStop(0, rgbaFromHex(finBase, params.fishFinAlphaBase));
+            g.addColorStop(0.6, rgbaFromHex(finMid, params.fishFinAlphaMid));
+            g.addColorStop(1, rgbaFromHex(finEdge, params.fishFinAlphaEdge));
+            return g;
+        };
         
         const s = (this.size / 22) * params.finScale;
 
         if (!topLayer) {
             let finCycle = Math.sin(this.finsAngle); 
             
+            if (!isShadow) {
+                c.fillStyle = makeFinGradient(6*s, 0, 45*s, 0);
+            }
             c.beginPath();
             c.moveTo(4*s, 0); 
             c.quadraticCurveTo(45*s, -40*s + finCycle*10*s, -15*s, -25*s + finCycle*5*s);
             c.quadraticCurveTo(0, -8*s, 4*s, 0);
             c.fill();
+            if (!isShadow) {
+                c.strokeStyle = rgbaFromHex(adjustColor(this.baseColor, -0.35), 0.5);
+                c.lineWidth = Math.max(1, this.size * 0.04);
+                c.beginPath();
+                c.moveTo(4*s, -2*s);
+                c.lineTo(-6*s, -10*s);
+                c.stroke();
+            }
             
+            if (!isShadow) {
+                c.fillStyle = makeFinGradient(6*s, 0, 45*s, 0);
+            }
             c.beginPath();
             c.moveTo(4*s, 0);
             c.quadraticCurveTo(45*s, 40*s - finCycle*10*s, -15*s, 25*s - finCycle*5*s);
             c.quadraticCurveTo(0, 8*s, 4*s, 0);
             c.fill();
+            if (!isShadow) {
+                c.strokeStyle = rgbaFromHex(adjustColor(this.baseColor, -0.35), 0.5);
+                c.lineWidth = Math.max(1, this.size * 0.04);
+                c.beginPath();
+                c.moveTo(4*s, 2*s);
+                c.lineTo(-6*s, 10*s);
+                c.stroke();
+            }
             
             c.translate(-22*s, 0); 
             let pelvicCycle = Math.cos(this.finsAngle); 
             
+            if (!isShadow) {
+                c.fillStyle = makeFinGradient(0, 0, 18*s, 0);
+            }
             c.beginPath();
             c.moveTo(0, 3*s); 
             c.quadraticCurveTo(15*s, 20*s + pelvicCycle*3*s, -5*s, 15*s);
             c.fill();
+            if (!isShadow) {
+                c.strokeStyle = rgbaFromHex(adjustColor(this.baseColor, -0.35), 0.45);
+                c.lineWidth = Math.max(1, this.size * 0.035);
+                c.beginPath();
+                c.moveTo(0, 3*s);
+                c.lineTo(-6*s, 10*s);
+                c.stroke();
+            }
             
+            if (!isShadow) {
+                c.fillStyle = makeFinGradient(0, 0, 18*s, 0);
+            }
             c.beginPath();
             c.moveTo(0, -3*s); 
             c.quadraticCurveTo(15*s, -20*s - pelvicCycle*3*s, -5*s, -15*s);
             c.fill();
+            if (!isShadow) {
+                c.strokeStyle = rgbaFromHex(adjustColor(this.baseColor, -0.35), 0.45);
+                c.lineWidth = Math.max(1, this.size * 0.035);
+                c.beginPath();
+                c.moveTo(0, -3*s);
+                c.lineTo(-6*s, -10*s);
+                c.stroke();
+            }
             
             c.restore();
         } else {
@@ -544,7 +701,7 @@ export class Koi {
              c.rotate(tailAngle);
              
              if(!isShadow) {
-                 c.fillStyle = 'rgba(255, 255, 255, 0.35)';
+                 c.fillStyle = makeFinGradient(0, 0, 35*s, 0);
              }
              
              let flutter = Math.sin(this.finsAngle * 1.5); 
@@ -558,6 +715,15 @@ export class Koi {
              c.lineTo(tipX - 10*s, 0); 
              c.bezierCurveTo(tipX, -tipY + flutter * 10*s, 20*s, -tipY + flutter * 5*s, 0, 0);
              c.fill();
+             
+             if (!isShadow) {
+                c.strokeStyle = rgbaFromHex(adjustColor(this.baseColor, -0.4), 0.5);
+                c.lineWidth = Math.max(1, this.size * 0.04);
+                c.beginPath();
+                c.moveTo(0, 0);
+                c.lineTo(12*s, 0);
+                c.stroke();
+             }
              
              if (!isShadow) {
                 c.strokeStyle = 'rgba(255,255,255,0.1)';
@@ -583,19 +749,61 @@ export class Koi {
         
         const s = this.size / 22;
         const eyeOffset = 7 * s;
-        const eyeSize = 3.5 * s; 
+        const eyeSize = params.fishEyeSizeRatio * s; 
+        const irisSize = eyeSize * params.fishEyeIrisRatio;
+        const pupilSize = irisSize * params.fishEyePupilRatio;
+        const shadowOffset = 0.6 * s;
         
-        ctx.fillStyle = '#111';
-        ctx.beginPath();
-        ctx.arc(eyeOffset, -eyeOffset, eyeSize, 0, Math.PI*2); 
-        ctx.arc(eyeOffset, eyeOffset, eyeSize, 0, Math.PI*2);
-        ctx.fill();
+        const drawSingleEye = (y) => {
+            const x = eyeOffset;
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+            ctx.beginPath();
+            ctx.ellipse(x + shadowOffset, y + shadowOffset, eyeSize * 0.95, eyeSize * 0.75, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            const scleraGradient = ctx.createRadialGradient(
+                x - eyeSize * 0.2, y - eyeSize * 0.2, eyeSize * 0.2,
+                x, y, eyeSize
+            );
+            scleraGradient.addColorStop(0, '#ffffff');
+            scleraGradient.addColorStop(0.6, '#e2e8ee');
+            scleraGradient.addColorStop(1, '#b8c2cc');
+            ctx.fillStyle = scleraGradient;
+            ctx.beginPath();
+            ctx.arc(x, y, eyeSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            const irisGradient = ctx.createRadialGradient(
+                x - irisSize * 0.25, y - irisSize * 0.25, irisSize * 0.1,
+                x, y, irisSize
+            );
+            irisGradient.addColorStop(0, '#7a92a5');
+            irisGradient.addColorStop(0.7, '#2c3f52');
+            irisGradient.addColorStop(1, '#182431');
+            ctx.fillStyle = irisGradient;
+            ctx.beginPath();
+            ctx.arc(x, y, irisSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#0b0f14';
+            ctx.beginPath();
+            ctx.arc(x, y, pupilSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.beginPath();
+            ctx.arc(x - pupilSize * 0.4, y - pupilSize * 0.4, pupilSize * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.beginPath();
+            ctx.arc(x + pupilSize * 0.2, y + pupilSize * 0.1, pupilSize * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+        };
         
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(eyeOffset + 1*s, -eyeOffset - 1*s, eyeSize * 0.35, 0, Math.PI*2); 
-        ctx.arc(eyeOffset + 1*s, eyeOffset + 1*s, eyeSize * 0.35, 0, Math.PI*2);
-        ctx.fill();
+        drawSingleEye(-eyeOffset);
+        drawSingleEye(eyeOffset);
 
         ctx.restore();
     }

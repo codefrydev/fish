@@ -6,6 +6,46 @@ import { rand, dist, isInView, width, height } from '../utils/helpers.js';
 import { fishGrid } from '../utils/SpatialGrid.js';
 import { ripplePool } from '../systems/ObjectPool.js';
 
+function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+}
+
+function hexToRgb(hex) {
+    const clean = hex.replace('#', '');
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    return { r, g, b };
+}
+
+function rgbToHex({ r, g, b }) {
+    const toHex = (v) => v.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function mixColors(a, b, t) {
+    const ca = hexToRgb(a);
+    const cb = hexToRgb(b);
+    const k = clamp01(t);
+    return rgbToHex({
+        r: Math.round(ca.r + (cb.r - ca.r) * k),
+        g: Math.round(ca.g + (cb.g - ca.g) * k),
+        b: Math.round(ca.b + (cb.b - ca.b) * k)
+    });
+}
+
+function adjustColor(hex, amount) {
+    if (amount >= 0) {
+        return mixColors(hex, '#ffffff', clamp01(amount));
+    }
+    return mixColors(hex, '#000000', clamp01(-amount));
+}
+
+function rgbaFromHex(hex, alpha) {
+    const { r, g, b } = hexToRgb(hex);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export class PredatorFish {
     constructor(x, y) {
         this.pos = new Vector(x, y);
@@ -322,11 +362,68 @@ export class PredatorFish {
         // Draw fins behind body (same as Koi)
         this.drawFins(ctx, head, headAngle, false);
         
-        // Draw body with solid color
+        // Draw body with shaded gradient
         ctx.save();
         this.drawBodyPath(ctx, leftPoints, rightPoints, head, headAngle);
-        ctx.fillStyle = params.predatorColor;
+        
+        let maxRadius = 0;
+        for (const s of this.spine) {
+            if (s.size > maxRadius) maxRadius = s.size;
+        }
+        const midIndex = Math.floor(this.spineLength * 0.4);
+        const midPoint = this.spine[midIndex].pos;
+        const perpAngle = headAngle + Math.PI / 2;
+        const gradRadius = maxRadius * 1.25;
+        const gx0 = midPoint.x + Math.cos(perpAngle) * gradRadius;
+        const gy0 = midPoint.y + Math.sin(perpAngle) * gradRadius;
+        const gx1 = midPoint.x - Math.cos(perpAngle) * gradRadius;
+        const gy1 = midPoint.y - Math.sin(perpAngle) * gradRadius;
+        
+        const bodyGradient = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
+        bodyGradient.addColorStop(0, adjustColor(params.predatorColor, -params.predatorBodyShadeDark));
+        bodyGradient.addColorStop(0.45, adjustColor(params.predatorColor, params.predatorBodyShadeLight * 0.5));
+        bodyGradient.addColorStop(0.55, adjustColor(params.predatorColor, params.predatorBodyShadeLight));
+        bodyGradient.addColorStop(1, adjustColor(params.predatorColor, -params.predatorBodyShadeDark * 0.75));
+        ctx.fillStyle = bodyGradient;
         ctx.fill();
+        
+        ctx.fillStyle = rgbaFromHex(params.predatorColor, params.predatorBodySolidAlpha);
+        ctx.fill();
+        
+        const lightDirX = 0.4;
+        const lightDirY = -0.9;
+        const lightLen = Math.hypot(lightDirX, lightDirY) || 1;
+        const lx = lightDirX / lightLen;
+        const ly = lightDirY / lightLen;
+        const highlightOffset = this.size * 0.18;
+        
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < this.spineLength - 1; i++) {
+            const s = this.spine[i];
+            const hx = s.pos.x + lx * highlightOffset * (s.size / maxRadius);
+            const hy = s.pos.y + ly * highlightOffset * (s.size / maxRadius);
+            if (i === 0) ctx.moveTo(hx, hy);
+            else ctx.lineTo(hx, hy);
+        }
+        ctx.strokeStyle = `rgba(255, 255, 255, ${params.predatorSpecularOuterAlpha})`;
+        ctx.lineWidth = this.size * params.predatorSpecularWidth;
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${params.predatorSpecularInnerAlpha})`;
+        ctx.lineWidth = this.size * params.predatorSpecularInnerWidth;
+        ctx.stroke();
+        ctx.restore();
+        
+        ctx.restore();
+        
+        ctx.save();
+        this.drawBodyPath(ctx, leftPoints, rightPoints, head, headAngle);
+        ctx.strokeStyle = rgbaFromHex(adjustColor(params.predatorColor, -params.predatorOutlineDarken), params.predatorOutlineAlpha);
+        ctx.lineWidth = Math.max(1, this.size * params.predatorOutlineWidth);
+        ctx.stroke();
         ctx.restore();
         
         // Draw dorsal fin
@@ -420,37 +517,74 @@ export class PredatorFish {
         ctx.translate(shoulder.pos.x, shoulder.pos.y);
         ctx.rotate(a);
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        const finBase = adjustColor(params.predatorColor, params.predatorFinShadeLight);
+        const finMid = adjustColor(params.predatorColor, params.predatorFinShadeMid);
+        const finEdge = adjustColor(params.predatorColor, -params.predatorFinShadeDark);
+        const makeFinGradient = (x0, y0, x1, y1) => {
+            const g = ctx.createLinearGradient(x0, y0, x1, y1);
+            g.addColorStop(0, rgbaFromHex(finBase, params.predatorFinAlphaBase));
+            g.addColorStop(0.6, rgbaFromHex(finMid, params.predatorFinAlphaMid));
+            g.addColorStop(1, rgbaFromHex(finEdge, params.predatorFinAlphaEdge));
+            return g;
+        };
         
         const s = (this.size / 22) * params.finScale;
 
         if (!topLayer) {
             let finCycle = Math.sin(this.swimTimer);
             
+            ctx.fillStyle = makeFinGradient(6*s, 0, 45*s, 0);
             ctx.beginPath();
             ctx.moveTo(4*s, 0);
             ctx.quadraticCurveTo(45*s, -40*s + finCycle*10*s, -15*s, -25*s + finCycle*5*s);
             ctx.quadraticCurveTo(0, -8*s, 4*s, 0);
             ctx.fill();
+            ctx.strokeStyle = rgbaFromHex(adjustColor(params.predatorColor, -0.45), 0.55);
+            ctx.lineWidth = Math.max(1, this.size * 0.04);
+            ctx.beginPath();
+            ctx.moveTo(4*s, -2*s);
+            ctx.lineTo(-6*s, -10*s);
+            ctx.stroke();
             
+            ctx.fillStyle = makeFinGradient(6*s, 0, 45*s, 0);
             ctx.beginPath();
             ctx.moveTo(4*s, 0);
             ctx.quadraticCurveTo(45*s, 40*s - finCycle*10*s, -15*s, 25*s - finCycle*5*s);
             ctx.quadraticCurveTo(0, 8*s, 4*s, 0);
             ctx.fill();
+            ctx.strokeStyle = rgbaFromHex(adjustColor(params.predatorColor, -0.45), 0.55);
+            ctx.lineWidth = Math.max(1, this.size * 0.04);
+            ctx.beginPath();
+            ctx.moveTo(4*s, 2*s);
+            ctx.lineTo(-6*s, 10*s);
+            ctx.stroke();
             
             ctx.translate(-22*s, 0);
             let pelvicCycle = Math.cos(this.swimTimer);
             
+            ctx.fillStyle = makeFinGradient(0, 0, 18*s, 0);
             ctx.beginPath();
             ctx.moveTo(0, 3*s);
             ctx.quadraticCurveTo(15*s, 20*s + pelvicCycle*3*s, -5*s, 15*s);
             ctx.fill();
+            ctx.strokeStyle = rgbaFromHex(adjustColor(params.predatorColor, -0.45), 0.5);
+            ctx.lineWidth = Math.max(1, this.size * 0.035);
+            ctx.beginPath();
+            ctx.moveTo(0, 3*s);
+            ctx.lineTo(-6*s, 10*s);
+            ctx.stroke();
             
+            ctx.fillStyle = makeFinGradient(0, 0, 18*s, 0);
             ctx.beginPath();
             ctx.moveTo(0, -3*s);
             ctx.quadraticCurveTo(15*s, -20*s - pelvicCycle*3*s, -5*s, -15*s);
             ctx.fill();
+            ctx.strokeStyle = rgbaFromHex(adjustColor(params.predatorColor, -0.45), 0.5);
+            ctx.lineWidth = Math.max(1, this.size * 0.035);
+            ctx.beginPath();
+            ctx.moveTo(0, -3*s);
+            ctx.lineTo(-6*s, -10*s);
+            ctx.stroke();
             
             ctx.restore();
         } else {
@@ -465,7 +599,7 @@ export class PredatorFish {
             ctx.translate(tailPos.x, tailPos.y);
             ctx.rotate(tailAngle);
             
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.fillStyle = makeFinGradient(0, 0, 35*s, 0);
             
             let flutter = Math.sin(this.swimTimer * 1.5);
             
@@ -478,6 +612,13 @@ export class PredatorFish {
             ctx.lineTo(tipX - 10*s, 0);
             ctx.bezierCurveTo(tipX, -tipY + flutter * 10*s, 20*s, -tipY + flutter * 5*s, 0, 0);
             ctx.fill();
+            
+            ctx.strokeStyle = rgbaFromHex(adjustColor(params.predatorColor, -0.5), 0.55);
+            ctx.lineWidth = Math.max(1, this.size * 0.04);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(12*s, 0);
+            ctx.stroke();
             
             ctx.strokeStyle = 'rgba(255,255,255,0.1)';
             ctx.lineWidth = 1;
@@ -498,25 +639,68 @@ export class PredatorFish {
         
         const s = this.size / 22;
         const eyeOffset = 7 * s;
-        const eyeSize = 3.5 * s;
+        const eyeSize = params.predatorEyeSizeRatio * s;
+        const irisSize = eyeSize * params.predatorEyeIrisRatio;
+        const pupilSize = irisSize * params.predatorEyePupilRatio;
+        const shadowOffset = 0.6 * s;
         
-        // Dark eyes
-        ctx.fillStyle = '#111';
-        ctx.beginPath();
-        ctx.arc(eyeOffset, -eyeOffset, eyeSize, 0, Math.PI*2);
-        ctx.arc(eyeOffset, eyeOffset, eyeSize, 0, Math.PI*2);
-        ctx.fill();
+        const drawSingleEye = (y) => {
+            const x = eyeOffset;
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.beginPath();
+            ctx.ellipse(x + shadowOffset, y + shadowOffset, eyeSize * 0.95, eyeSize * 0.75, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            const scleraGradient = ctx.createRadialGradient(
+                x - eyeSize * 0.2, y - eyeSize * 0.2, eyeSize * 0.2,
+                x, y, eyeSize
+            );
+            scleraGradient.addColorStop(0, '#e9edf2');
+            scleraGradient.addColorStop(0.6, '#c2c9d1');
+            scleraGradient.addColorStop(1, '#8c97a3');
+            ctx.fillStyle = scleraGradient;
+            ctx.beginPath();
+            ctx.arc(x, y, eyeSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            const irisGradient = ctx.createRadialGradient(
+                x - irisSize * 0.25, y - irisSize * 0.25, irisSize * 0.1,
+                x, y, irisSize
+            );
+            irisGradient.addColorStop(0, '#5a6d7a');
+            irisGradient.addColorStop(0.7, '#24313c');
+            irisGradient.addColorStop(1, '#111820');
+            ctx.fillStyle = irisGradient;
+            ctx.beginPath();
+            ctx.arc(x, y, irisSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#0a0f14';
+            ctx.beginPath();
+            ctx.arc(x, y, pupilSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+            ctx.beginPath();
+            ctx.arc(x - pupilSize * 0.4, y - pupilSize * 0.4, pupilSize * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            if (this.state === 'ATTACKING') {
+                ctx.fillStyle = `rgba(255, 60, 60, ${params.predatorEyeAttackGlowAlpha})`;
+                ctx.beginPath();
+                ctx.arc(x + pupilSize * 0.1, y + pupilSize * 0.1, pupilSize * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.beginPath();
+                ctx.arc(x + pupilSize * 0.2, y + pupilSize * 0.1, pupilSize * 0.2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        };
         
-        // Eye highlight - red when attacking
-        if (this.state === 'ATTACKING') {
-            ctx.fillStyle = '#ff3333';
-        } else {
-            ctx.fillStyle = '#fff';
-        }
-        ctx.beginPath();
-        ctx.arc(eyeOffset + 1*s, -eyeOffset - 1*s, eyeSize * 0.35, 0, Math.PI*2);
-        ctx.arc(eyeOffset + 1*s, eyeOffset + 1*s, eyeSize * 0.35, 0, Math.PI*2);
-        ctx.fill();
+        drawSingleEye(-eyeOffset);
+        drawSingleEye(eyeOffset);
 
         ctx.restore();
     }
