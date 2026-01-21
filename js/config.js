@@ -1,0 +1,297 @@
+// Configuration and Parameters
+// All tunable parameters for the Koi Pond
+
+export const params = {
+    fishCount: 20,
+    sizeMin: 5,
+    sizeMax: 12,
+    spineCount: 14,
+    fatness: 1.0,
+    tailTaper: 1.5,
+    finScale: 1.0, 
+    speedScale: 1.0, 
+    waveSpeedBase: 0.005,
+    waveSpeedMult: 0.04,
+    waveAmpMax: 0.05,
+    waveAmpGain: 0.01,
+    distConstraint: 0.35,
+    turnForce: 0.025,
+    waterColor1: "#1a2a3a",
+    waterColor2: "#0f1820",
+    rainMode: false,
+    stoneDensity: 100, 
+    stoneSizeMin: 6,
+    stoneSizeMax: 14,
+    pebbleColors: ["#5a4d33", "#8c7b60", "#2f2818"], 
+    padDensity: 15,
+    padFormation: 'random',
+    padSizeMin: 25,
+    padSizeMax: 55,
+    padSplitSize: 0.5, 
+    padVeinCount: 5,   
+    padColor: "#4caf50", 
+    flowerChance: 0.2,
+    flowerType: 'mixed',
+    flowerColors: ["#ffccd5", "#ffffff", "#ff69b4"],
+    frogChance: 0.1,
+    foodSpawnRate: 0.01, 
+    foodSize: 4,
+    foodColor: "#eeba7b",
+    targetFPS: 60,
+    
+    // Fish reproduction
+    birthMode: 'hybrid',  // 'proximity', 'random', or 'hybrid'
+    birthChance: 0.008,
+    maxFishCount: 50,
+    birthCooldown: 180,
+    
+    // Predator settings
+    predatorCount: 3,
+    predatorSizeMin: 12,
+    predatorSizeMax: 20,
+    predatorHuntSuccessRate: 0.4,
+    predatorDetectionRange: 150,
+    predatorAttackSpeed: 5.0,
+    predatorRestTime: 300,
+    predatorColor: "#1a3d2e",
+    
+    // Grass settings
+    grassDensity: 30,
+    grassHeightMin: 20,
+    grassHeightMax: 45,
+    grassColor: "#2d5016",
+    grassSwaySpeed: 0.006,
+    grassSwayAmount: 0.08,
+    
+    // Turtle settings
+    turtleCount: 3,
+    turtleSizeMin: 12,
+    turtleSizeMax: 18,
+    turtleBaseSpeedMin: 0.5,
+    turtleBaseSpeedMax: 0.8,
+    turtleTurnForce: 0.02,
+    turtleColor: "#4a7c59",
+    turtlePatternColor: "#2d4a35",
+    turtleHeadColor: "#5a8a68",
+    turtleDetectionRange: 180,
+    turtleFleeForceMultiplier: 3.5,
+    turtleFoodSeekRange: 250,
+    turtleTamedDuration: 600,
+    
+    // Snail settings
+    snailCount: 2,
+    snailSizeMin: 8,
+    snailSizeMax: 12,
+    snailSpeedMin: 0.2,
+    snailSpeedMax: 0.4,
+    snailShellColor: "#8B7355",
+    snailBodyColor: "#C4A57B",
+    snailDetectionRange: 120,
+    snailRetractDuration: 180,
+    snailCrawlSpeed: 0.5,
+    snailSwimChance: 0.15,
+    snailSwimDuration: 300,
+    
+    // Crocodile settings
+    crocodileCount: 1,
+    crocodileSizeMin: 22,
+    crocodileSizeMax: 30,
+    crocodileBaseSpeed: 0.4,
+    crocodileDetectionRange: 200,
+    crocodileAttackSpeed: 2.5,
+    crocodileHuntSuccessRate: 0.6,
+    crocodileRestTime: 400,
+    crocodileColor: "#3d5a2f",
+    crocodileBodyColor: "#4a6b38",
+    crocodileBellyColor: "#8b9b7a",
+    crocodileEyeColor: "#e8c547",
+    
+    // === ADVANCED SETTINGS ===
+    
+    // Fish Physics Advanced
+    fishBaseSpeedMin: 1.5,
+    fishBaseSpeedMax: 2.5,
+    fishThicknessHead: 0.4,
+    fishThicknessNeck: 0.35,
+    fishThicknessTaper: 0.75,
+    fishThicknessMin: 0.12,
+    fishThicknessPow: 0.9,
+    fishWavePhaseOffset: 0.35,
+    fishInitialBirthCooldown: 60,
+    fishFleeForceMultiplier: 4,
+    fishInitialSwimTimer: 100,
+    
+    // Food Spawning Advanced
+    foodSizeVariationMin: 0.9,
+    foodSizeVariationMax: 1.1,
+    foodVelocityMin: -0.1,
+    foodVelocityMax: 0.1,
+    
+    // Predator Advanced
+    predatorBaseSpeed: 0.8,
+    predatorMaxForceLurking: 0.015,
+    predatorMaxForceAttacking: 0.15,
+    predatorMaxForceResting: 0.01,
+    predatorWanderProbability: 0.02,
+    predatorWanderMagnitude: 0.3,
+    predatorDetectingSpeedMult: 0.5,
+    predatorDetectingSeekMult: 0.3,
+    predatorDetectionTime: 30,
+    predatorAttackingSeekMult: 3.0,
+    predatorCatchDistance: 0.8,
+    predatorEatingDuration: 60,
+    predatorEatingSpeed: 0.2,
+    predatorRestingSpeedMult: 0.3,
+    predatorRestTimeFailMult: 0.5,
+    predatorRestTimeGiveUpMult: 0.3,
+    predatorMaxChaseDistMult: 2.0,
+    predatorAttackWaveMult: 1.5,
+    predatorBoundaryMargin: 80,
+    
+    // Lily Pad Advanced
+    padHueVariationMin: -5,
+    padHueVariationMax: 5,
+    padNotchAngleMin: 0.5,
+    padNotchAngleMax: 1.0,
+    padVeinLengthRatio: 0.85,
+    flowerMixedLotusProb: 0.5,
+    flowerMixedLilyProb: 0.8,
+    lotusOuterPetalCount: 8,
+    lotusOuterPetalRadius: 12,
+    lotusOuterPetalWidth: 10,
+    lotusOuterPetalHeight: 5,
+    lotusCenterRadius: 5,
+    lilyPetalCount: 12,
+    lilyCenterRadius: 3,
+    
+    // Frog Advanced
+    frogDiveDuration: 20,
+    frogJumpLegLength: 15,
+    frogEyeSizeRatio: 0.4,
+    frogSwimSpeedMin: 1.0,
+    frogSwimSpeedMax: 2.0,
+    frogSwimForce: 0.03,
+    frogJumpRange: 200,
+    frogSwimChance: 0.15,
+    frogSwimIdleTime: 300,
+    frogSwimSeekRange: 300,
+    frogFloatChance: 0.2,
+    frogFloatDuration: 400,
+    frogFloatDriftSpeed: 0.3,
+    frogFloatBobSpeed: 0.02,
+    frogFloatBobAmount: 2,
+    
+    // Environment Advanced
+    stoneDensityBase: 15000,
+    padClusterCountMin: 2,
+    padClusterCountMax: 5,
+    padRingRadiusMult: 0.35,
+    padRingVariationMin: -40,
+    padRingVariationMax: 40,
+    padClumpedOffsetRange: 180,
+    
+    // Ripple Effects
+    rippleLungeRadius: 5,
+    rippleLungeMaxRadius: 60,
+    rippleLungeSpeed: 2,
+    rippleKillMainRadius: 10,
+    rippleKillMainMaxRadius: 150,
+    rippleKillMainSpeed: 3,
+    rippleKillSecondaryRadius: 5,
+    rippleKillSecondaryMaxRadius: 100,
+    rippleKillSecondarySpeed: 4,
+    rippleFailRadius: 5,
+    rippleFailMaxRadius: 80,
+    rippleFailSpeed: 2,
+    
+    // Rendering & Performance
+    shadowUpdateFPS: 30,
+    shadowOffsetX: 20,
+    shadowOffsetY: 20,
+    
+    // Fish 3D Shading
+    fishBodyShadeDark: 0.4,
+    fishBodyShadeLight: 0.2,
+    fishBodySolidAlpha: 0.45,
+    fishPatternEdgeAlpha: 0.15,
+    fishSpecularOuterAlpha: 0.16,
+    fishSpecularInnerAlpha: 0.3,
+    fishSpecularWidth: 0.22,
+    fishSpecularInnerWidth: 0.09,
+    fishFinShadeLight: 0.25,
+    fishFinShadeMid: 0.08,
+    fishFinShadeDark: 0.25,
+    fishFinAlphaBase: 0.55,
+    fishFinAlphaMid: 0.35,
+    fishFinAlphaEdge: 0.15,
+    fishOutlineDarken: 0.5,
+    fishOutlineAlpha: 0.3,
+    fishOutlineWidth: 0.06,
+    fishEyeSizeRatio: 2.2,
+    fishEyeIrisRatio: 0.65,
+    fishEyePupilRatio: 0.45,
+    
+    // Predator 3D Shading
+    predatorBodyShadeDark: 0.4,
+    predatorBodyShadeLight: 0.15,
+    predatorBodySolidAlpha: 0.5,
+    predatorSpecularOuterAlpha: 0.12,
+    predatorSpecularInnerAlpha: 0.25,
+    predatorSpecularWidth: 0.2,
+    predatorSpecularInnerWidth: 0.08,
+    predatorFinShadeLight: 0.2,
+    predatorFinShadeMid: 0.05,
+    predatorFinShadeDark: 0.25,
+    predatorFinAlphaBase: 0.4,
+    predatorFinAlphaMid: 0.25,
+    predatorFinAlphaEdge: 0.1,
+    predatorOutlineDarken: 0.6,
+    predatorOutlineAlpha: 0.35,
+    predatorOutlineWidth: 0.07,
+    predatorEyeSizeRatio: 2.0,
+    predatorEyeIrisRatio: 0.6,
+    predatorEyePupilRatio: 0.5,
+    predatorEyeAttackGlowAlpha: 0.85,
+    
+    // Predator trail settings (anime-style eye after-images)
+    predatorTrailMaxLength: 12,        // Maximum number of trail points
+    predatorTrailFadeTime: 0.5,        // Time in seconds for trail to fade
+    predatorTrailColor: "#ff4444",     // Trail color (red/orange) - not used for eye trails
+    predatorTrailWidth: 3,              // Base trail width - not used for eye trails
+    predatorTrailSpacing: 10,           // Distance between trail points
+    predatorTrailAlpha: 0.8,            // Maximum trail alpha
+    
+    // Enhanced eye glow
+    predatorEyeGlowOuterRadius: 1.8,    // Multiplier for outer glow radius
+    predatorEyeGlowPulseSpeed: 0.15,    // Speed of glow pulsing animation
+    predatorEyeGlowIntensity: 1.2,      // Intensity multiplier for glow
+    
+    // Crocodile Advanced
+    crocodileMaxForceLurking: 0.012,
+    crocodileMaxForceAttacking: 0.12,
+    crocodileMaxForceResting: 0.008,
+    crocodileWanderProbability: 0.015,
+    crocodileWanderMagnitude: 0.25,
+    crocodileDetectingSpeedMult: 0.6,
+    crocodileDetectingSeekMult: 0.4,
+    crocodileDetectionTime: 40,
+    crocodileAttackingSeekMult: 2.5,
+    crocodileCatchDistance: 1.0,
+    crocodileEatingDuration: 80,
+    crocodileEatingSpeed: 0.15,
+    crocodileRestingSpeedMult: 0.25,
+    crocodileRestTimeFailMult: 0.6,
+    crocodileRestTimeGiveUpMult: 0.4,
+    crocodileMaxChaseDistMult: 2.5,
+    crocodileBoundaryMargin: 100,
+    crocodileBodyShadeDark: 0.35,
+    crocodileBodyShadeLight: 0.12,
+    crocodileOutlineDarken: 0.55,
+    crocodileOutlineAlpha: 0.4,
+    crocodileOutlineWidth: 0.08,
+    crocodileEyeSizeRatio: 1.8,
+    crocodileEyeGlowIntensity: 1.0
+};
+
+// Render culling margin
+export const CULL_MARGIN = 100;
