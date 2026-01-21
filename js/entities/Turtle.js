@@ -285,36 +285,36 @@ export class Turtle {
         ctx.translate(this.pos.x, this.pos.y);
         ctx.rotate(this.rotation);
         
-        const shellWidth = this.size * 1.4;
-        const shellHeight = this.size * 1.6;
+        // Top-down view: shell is circular/oval from above
+        const shellRadius = this.size * 1.3;  // Circular shell from top
         
         // Draw legs (behind shell)
-        this.drawLegs(ctx, shellWidth, shellHeight, false);
+        this.drawLegs(ctx, shellRadius, false);
         
         // Draw shell
         ctx.save();
         
-        // Shell base (darker outline)
+        // Shell base (darker outline/shadow)
         ctx.fillStyle = this.patternColor;
         ctx.beginPath();
-        ctx.ellipse(0, 0, shellWidth + 2, shellHeight + 2, 0, 0, Math.PI * 2);
+        ctx.arc(0, 0, shellRadius + 2, 0, Math.PI * 2);
         ctx.fill();
         
-        // Main shell
+        // Main shell - circular from top
         ctx.fillStyle = this.shellColor;
         ctx.beginPath();
-        ctx.ellipse(0, 0, shellWidth, shellHeight, 0, 0, Math.PI * 2);
+        ctx.arc(0, 0, shellRadius, 0, Math.PI * 2);
         ctx.fill();
         
-        // Shell pattern (hexagonal segments)
+        // Shell pattern (hexagonal segments) - visible from top
         ctx.fillStyle = this.patternColor;
         for (const segment of this.shellSegments) {
-            const sx = Math.cos(segment.angle) * segment.distance * shellWidth;
-            const sy = Math.sin(segment.angle) * segment.distance * shellHeight;
-            const sSize = segment.size * Math.min(shellWidth, shellHeight);
+            const sx = Math.cos(segment.angle) * segment.distance * shellRadius;
+            const sy = Math.sin(segment.angle) * segment.distance * shellRadius;
+            const sSize = segment.size * shellRadius;
             
             ctx.beginPath();
-            // Draw hexagon
+            // Draw hexagon (scutes visible from above)
             for (let i = 0; i < 6; i++) {
                 const angle = (i / 6) * Math.PI * 2;
                 const px = sx + Math.cos(angle) * sSize;
@@ -324,32 +324,47 @@ export class Turtle {
             }
             ctx.closePath();
             ctx.fill();
+            
+            // Add highlight on each scute (top-down lighting)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.arc(sx - sSize * 0.2, sy - sSize * 0.2, sSize * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = this.patternColor;
         }
         
-        // Shell highlight
+        // Shell highlight - top-down lighting (sun from above)
         const gradient = ctx.createRadialGradient(
-            -shellWidth * 0.3, -shellHeight * 0.3, 0,
-            0, 0, Math.max(shellWidth, shellHeight)
+            -shellRadius * 0.3, -shellRadius * 0.3, 0,
+            0, 0, shellRadius * 1.2
         );
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
-        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.1)');
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.25)');
+        gradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.08)');
+        gradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.05)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.ellipse(0, 0, shellWidth, shellHeight, 0, 0, Math.PI * 2);
+        ctx.arc(0, 0, shellRadius, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Shell rim/edge
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, shellRadius, 0, Math.PI * 2);
+        ctx.stroke();
         
         ctx.restore();
         
-        // Draw head
-        this.drawHead(ctx, shellWidth, shellHeight);
+        // Draw head (from top)
+        this.drawHead(ctx, shellRadius);
         
         // Draw legs (in front of shell)
-        this.drawLegs(ctx, shellWidth, shellHeight, true);
+        this.drawLegs(ctx, shellRadius, true);
         
         // Draw tamed indicator (heart)
         if (this.heartScale > 0) {
-            this.drawHeart(ctx, shellWidth, shellHeight);
+            this.drawHeart(ctx, shellRadius);
         }
         
         // Draw glow when tamed
@@ -359,7 +374,7 @@ export class Turtle {
             ctx.strokeStyle = '#ff69b4';
             ctx.lineWidth = 3;
             ctx.beginPath();
-            ctx.ellipse(0, 0, shellWidth + 4, shellHeight + 4, 0, 0, Math.PI * 2);
+            ctx.arc(0, 0, shellRadius + 4, 0, Math.PI * 2);
             ctx.stroke();
             ctx.restore();
         }
@@ -367,11 +382,11 @@ export class Turtle {
         ctx.restore();
     }
     
-    drawHeart(ctx, shellWidth, shellHeight) {
+    drawHeart(ctx, shellRadius) {
         ctx.save();
         
-        // Heart position above turtle
-        const heartY = -shellHeight - this.size * 0.8;
+        // Heart position above turtle (from top view)
+        const heartY = -shellRadius - this.size * 0.8;
         const bounce = Math.sin(this.heartBeat) * 3;
         ctx.translate(0, heartY + bounce);
         
@@ -426,63 +441,115 @@ export class Turtle {
         ctx.closePath();
     }
     
-    drawHead(ctx, shellWidth, shellHeight) {
-        const headX = shellWidth + this.size * 0.3;
-        const headY = 0;
-        const headSize = this.size * 0.5;
+    drawHead(ctx, shellRadius) {
+        const headX = shellRadius + this.size * 0.25;
+        const headSize = this.size * 0.55;
         
         // Retract head slightly when scared
-        const retraction = this.isScared ? this.size * 0.3 : 0;
+        const retraction = this.isScared ? this.size * 0.25 : 0;
         
         ctx.save();
-        ctx.translate(headX - retraction, headY);
+        ctx.translate(headX - retraction, 0);
         
-        // Neck
+        // Neck (visible from top as connecting oval)
         ctx.fillStyle = params.turtleHeadColor;
         ctx.beginPath();
-        ctx.ellipse(-headSize * 0.3, 0, headSize * 0.4, headSize * 0.3, 0, 0, Math.PI * 2);
+        ctx.ellipse(-headSize * 0.2, 0, headSize * 0.35, headSize * 0.25, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Head
+        // Head - circular/oval from top view
         ctx.beginPath();
-        ctx.ellipse(0, 0, headSize, headSize * 0.8, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, 0, headSize, headSize * 0.85, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Eyes
+        // Head shading (top-down lighting)
+        const headGradient = ctx.createRadialGradient(
+            -headSize * 0.3, -headSize * 0.3, 0,
+            0, 0, headSize
+        );
+        headGradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+        headGradient.addColorStop(0.6, 'rgba(0, 0, 0, 0.05)');
+        headGradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+        ctx.fillStyle = headGradient;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, headSize, headSize * 0.85, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Head outline
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, headSize, headSize * 0.85, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Eyes - on sides of head (visible from top)
         if (!this.isScared || retraction < this.size * 0.2) {
-            const eyeSize = headSize * 0.2;
-            const eyeY = -headSize * 0.3;
+            const eyeSize = headSize * 0.22;
+            const eyeSpacing = headSize * 0.7;  // Eyes on left and right sides
             
-            // Eye whites
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(headSize * 0.3, eyeY, eyeSize, 0, Math.PI * 2);
-            ctx.fill();
+            // Left eye (negative y = left side when facing forward)
+            this.drawSingleEye(ctx, 0, -eyeSpacing, eyeSize);
             
-            // Pupils
-            ctx.fillStyle = '#000000';
-            ctx.beginPath();
-            ctx.arc(headSize * 0.3, eyeY, eyeSize * 0.5, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Eye shine
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-            ctx.beginPath();
-            ctx.arc(headSize * 0.35, eyeY - eyeSize * 0.2, eyeSize * 0.3, 0, Math.PI * 2);
-            ctx.fill();
+            // Right eye (positive y = right side when facing forward)
+            this.drawSingleEye(ctx, 0, eyeSpacing, eyeSize);
         }
         
-        // Nose marks
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        // Nose at front tip (visible from top)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.beginPath();
-        ctx.arc(headSize * 0.7, -headSize * 0.1, headSize * 0.08, 0, Math.PI * 2);
-        ctx.arc(headSize * 0.7, headSize * 0.1, headSize * 0.08, 0, Math.PI * 2);
+        ctx.arc(headSize * 0.75, 0, headSize * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Nose highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.beginPath();
+        ctx.arc(headSize * 0.72, -headSize * 0.03, headSize * 0.04, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.restore();
     }
     
-    drawLegs(ctx, shellWidth, shellHeight, frontLegs) {
+    drawSingleEye(ctx, x, y, size) {
+        // Eye bulge (raised, visible from top)
+        const bulgeGradient = ctx.createRadialGradient(
+            x - size * 0.3, y - size * 0.3, 0,
+            x, y, size * 1.2
+        );
+        bulgeGradient.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
+        bulgeGradient.addColorStop(0.6, params.turtleHeadColor);
+        bulgeGradient.addColorStop(1, 'rgba(0, 0, 0, 0.25)');
+        ctx.fillStyle = bulgeGradient;
+        ctx.beginPath();
+        ctx.arc(x, y, size * 1.1, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eye rim
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Eye white
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Pupil
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(x, y, size * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eye shine (from above)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.beginPath();
+        ctx.arc(x - size * 0.2, y - size * 0.2, size * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    drawLegs(ctx, shellRadius, frontLegs) {
         const swimSpeed = this.vel.mag();
         const isSwimming = swimSpeed > 0.1;
         
@@ -491,155 +558,136 @@ export class Turtle {
         const legKick = Math.sin(this.legPhase) * kickMultiplier;
         const legColor = params.turtleHeadColor;
         
-        ctx.fillStyle = legColor;
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.lineWidth = 1.5;
-        
         if (!frontLegs) {
-            // Back legs (more powerful, used for propulsion)
-            const backLegX = -shellWidth * 0.3;
-            const backLegY = shellHeight * 0.85;
+            // Back legs - stick out from sides (top view)
+            const backLegX = -shellRadius * 0.25;
+            const backLegY = shellRadius * 0.9;
             const backKick = Math.sin(this.legPhase + Math.PI);
             
             // Left back leg
-            ctx.save();
-            ctx.translate(backLegX, -backLegY);
-            const leftBackAngle = -0.4 + backKick * 0.35;
-            ctx.rotate(leftBackAngle);
-            
-            // Upper leg
-            ctx.fillStyle = legColor;
-            ctx.beginPath();
-            ctx.ellipse(-this.size * 0.15, 0, this.size * 0.25, this.size * 0.4, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Webbed foot (flipper)
-            ctx.save();
-            ctx.translate(-this.size * 0.35, 0);
-            ctx.rotate(backKick * 0.2);
-            this.drawWebbedFoot(ctx, this.size * 0.3, this.size * 0.45, legColor);
-            ctx.restore();
-            
-            ctx.restore();
+            this.drawSingleLeg(ctx, backLegX, -backLegY, legColor, backKick, true);
             
             // Right back leg
-            ctx.save();
-            ctx.translate(backLegX, backLegY);
-            const rightBackAngle = 0.4 - backKick * 0.35;
-            ctx.rotate(rightBackAngle);
-            
-            // Upper leg
-            ctx.fillStyle = legColor;
-            ctx.beginPath();
-            ctx.ellipse(-this.size * 0.15, 0, this.size * 0.25, this.size * 0.4, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Webbed foot (flipper)
-            ctx.save();
-            ctx.translate(-this.size * 0.35, 0);
-            ctx.rotate(-backKick * 0.2);
-            this.drawWebbedFoot(ctx, this.size * 0.3, this.size * 0.45, legColor);
-            ctx.restore();
-            
-            ctx.restore();
+            this.drawSingleLeg(ctx, backLegX, backLegY, legColor, -backKick, true);
         } else {
-            // Front legs (smaller, used for steering)
-            const frontLegX = shellWidth * 0.45;
-            const frontLegY = shellHeight * 0.7;
+            // Front legs - stick out from sides (top view)
+            const frontLegX = shellRadius * 0.4;
+            const frontLegY = shellRadius * 0.75;
             
             // Left front leg
-            ctx.save();
-            ctx.translate(frontLegX, -frontLegY);
-            const leftFrontAngle = -0.3 + legKick * 0.25;
-            ctx.rotate(leftFrontAngle);
-            
-            // Upper leg
-            ctx.fillStyle = legColor;
-            ctx.beginPath();
-            ctx.ellipse(this.size * 0.12, 0, this.size * 0.2, this.size * 0.35, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Webbed foot (smaller)
-            ctx.save();
-            ctx.translate(this.size * 0.3, 0);
-            ctx.rotate(legKick * 0.15);
-            this.drawWebbedFoot(ctx, this.size * 0.22, this.size * 0.35, legColor);
-            ctx.restore();
-            
-            ctx.restore();
+            this.drawSingleLeg(ctx, frontLegX, -frontLegY, legColor, legKick, false);
             
             // Right front leg
-            ctx.save();
-            ctx.translate(frontLegX, frontLegY);
-            const rightFrontAngle = 0.3 - legKick * 0.25;
-            ctx.rotate(rightFrontAngle);
-            
-            // Upper leg
-            ctx.fillStyle = legColor;
-            ctx.beginPath();
-            ctx.ellipse(this.size * 0.12, 0, this.size * 0.2, this.size * 0.35, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Webbed foot (smaller)
-            ctx.save();
-            ctx.translate(this.size * 0.3, 0);
-            ctx.rotate(-legKick * 0.15);
-            this.drawWebbedFoot(ctx, this.size * 0.22, this.size * 0.35, legColor);
-            ctx.restore();
-            
-            ctx.restore();
+            this.drawSingleLeg(ctx, frontLegX, frontLegY, legColor, -legKick, false);
         }
     }
     
-    drawWebbedFoot(ctx, width, height, color) {
-        // Draw webbed flipper with distinct toes
-        ctx.fillStyle = color;
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.lineWidth = 1;
+    drawSingleLeg(ctx, x, y, color, kick, isBack) {
+        const legLength = this.size * 0.6;
+        const legWidth = this.size * 0.2;
+        const footSize = this.size * 0.3;
         
-        // Main foot pad
+        ctx.save();
+        ctx.translate(x, y);
+        
+        // Legs stick out perpendicular from shell (top view)
+        const baseAngle = y < 0 ? -Math.PI / 2 : Math.PI / 2;
+        const angle = baseAngle + (y < 0 ? -0.15 : 0.15) + kick * 0.2;
+        ctx.rotate(angle);
+        
+        // Upper leg - oval from top
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.ellipse(legLength * 0.25, 0, legLength * 0.3, legWidth, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Leg shading
+        const legGradient = ctx.createRadialGradient(
+            legLength * 0.15, -legWidth * 0.3, 0,
+            legLength * 0.25, 0, legLength * 0.4
+        );
+        legGradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+        legGradient.addColorStop(0.6, 'rgba(0, 0, 0, 0.05)');
+        legGradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+        ctx.fillStyle = legGradient;
+        ctx.fill();
+        
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // Lower leg/foot
+        ctx.save();
+        ctx.translate(legLength * 0.55, 0);
+        ctx.rotate(kick * 0.1);
+        
+        // Webbed foot - visible from top
+        this.drawWebbedFoot(ctx, footSize, footSize * 0.8, color);
+        
+        ctx.restore();
+        ctx.restore();
+    }
+    
+    drawWebbedFoot(ctx, width, height, color) {
+        // Draw webbed flipper - visible from top
+        ctx.fillStyle = color;
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = 1.5;
+        
+        // Main foot pad - oval from top
         ctx.beginPath();
         ctx.ellipse(0, 0, width, height, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.stroke();
         
-        // Webbing detail (darker, semi-transparent)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-        ctx.beginPath();
-        
-        // Draw webbing between toes
-        const toeCount = 3;
-        for (let i = 0; i < toeCount; i++) {
-            const angle = (i / (toeCount - 1) - 0.5) * Math.PI * 0.6;
-            const toeX = Math.sin(angle) * width * 0.7;
-            const toeY = Math.cos(angle) * height * 0.8;
-            
-            if (i === 0) {
-                ctx.moveTo(0, -height * 0.3);
-            }
-            ctx.lineTo(toeX, toeY);
-        }
-        ctx.lineTo(0, -height * 0.3);
-        ctx.closePath();
+        // Foot shading (top-down)
+        const footGradient = ctx.createRadialGradient(
+            -width * 0.2, -height * 0.2, 0,
+            0, 0, width
+        );
+        footGradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+        footGradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.08)');
+        footGradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+        ctx.fillStyle = footGradient;
         ctx.fill();
         
-        // Toe lines for detail
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
-        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        
+        // Webbing detail - visible from top
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.lineWidth = 1;
+        
+        // Draw webbing between toes (3 toes visible)
+        const toeCount = 3;
         for (let i = 0; i < toeCount; i++) {
-            const angle = (i / (toeCount - 1) - 0.5) * Math.PI * 0.6;
-            const toeX = Math.sin(angle) * width * 0.7;
-            const toeY = Math.cos(angle) * height * 0.8;
+            const angle = (i / (toeCount - 1) - 0.5) * Math.PI * 0.5;
+            const toeX = Math.sin(angle) * width * 0.75;
+            const toeY = Math.cos(angle) * height * 0.85;
             
+            // Toe line
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(toeX, toeY);
             ctx.stroke();
+            
+            // Toe tip
+            ctx.beginPath();
+            ctx.arc(toeX, toeY, width * 0.08, 0, Math.PI * 2);
+            ctx.fill();
         }
+        
+        // Webbing between toes
+        ctx.beginPath();
+        ctx.moveTo(0, -height * 0.2);
+        for (let i = 0; i < toeCount; i++) {
+            const angle = (i / (toeCount - 1) - 0.5) * Math.PI * 0.5;
+            const toeX = Math.sin(angle) * width * 0.75;
+            const toeY = Math.cos(angle) * height * 0.85;
+            ctx.lineTo(toeX, toeY);
+        }
+        ctx.lineTo(0, -height * 0.2);
+        ctx.closePath();
+        ctx.fill();
     }
     
     drawShadow(shadowCtx) {
@@ -652,12 +700,11 @@ export class Turtle {
         );
         shadowCtx.rotate(this.rotation);
         
-        const shellWidth = this.size * 1.4;
-        const shellHeight = this.size * 1.6;
+        const shellRadius = this.size * 1.3;
         
         shadowCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
         shadowCtx.beginPath();
-        shadowCtx.ellipse(0, 0, shellWidth + 4, shellHeight + 4, 0, 0, Math.PI * 2);
+        shadowCtx.arc(0, 0, shellRadius + 4, 0, Math.PI * 2);
         shadowCtx.fill();
         
         shadowCtx.restore();

@@ -2,10 +2,11 @@
 
 import { params, CULL_MARGIN } from '../config.js';
 import { setDimensions, isInView, rand } from '../utils/helpers.js';
-import { fishGrid, foodGrid, predatorGrid } from '../utils/SpatialGrid.js';
+import { fishGrid, foodGrid, predatorGrid, crocodileGrid } from '../utils/SpatialGrid.js';
 import { ripplePool, foodPool, updatePooledRipple, drawPooledRipple, updatePooledFood, drawPooledFood } from '../systems/ObjectPool.js';
 import { performanceManager } from '../systems/PerformanceManager.js';
 import { setMainContext, Koi } from '../entities/Koi.js';
+import { PredatorFish } from '../entities/PredatorFish.js';
 import { Frog } from '../entities/Frog.js';
 
 // Canvas references
@@ -187,7 +188,7 @@ export function animate(currentTime, addRippleFn) {
         return;
     }
     
-    const { fish, predators, turtles, snails, pads, frogs, grass } = entities;
+    const { fish, predators, crocodiles, turtles, snails, pads, frogs, grass } = entities;
     
     // Frame rate limiting
     if (!performanceManager.shouldRender(currentTime, params.targetFPS)) {
@@ -241,12 +242,14 @@ export function animate(currentTime, addRippleFn) {
     fishGrid.clear();
     foodGrid.clear();
     predatorGrid.clear();
+    crocodileGrid.clear();
     
     fish.forEach(f => fishGrid.insert(f, f.pos.x, f.pos.y));
     activeFoods.forEach(f => {
         if (!f.eaten) foodGrid.insert(f, f.pos.x, f.pos.y);
     });
     predators.forEach(p => predatorGrid.insert(p, p.pos.x, p.pos.y));
+    crocodiles.forEach(c => crocodileGrid.insert(c, c.pos.x, c.pos.y));
     
     // Update shadow canvas at lower frame rate for performance
     const shouldUpdateShadows = currentTime - lastShadowUpdate >= (1000 / params.shadowUpdateFPS);
@@ -263,6 +266,12 @@ export function animate(currentTime, addRippleFn) {
         predators.forEach(p => {
             if (isInView(p.pos.x, p.pos.y, CULL_MARGIN + 50)) {
                 p.drawShadow(shadowCtx);
+            }
+        });
+        // Crocodile shadows
+        crocodiles.forEach(c => {
+            if (isInView(c.pos.x, c.pos.y, CULL_MARGIN + 100)) {
+                c.drawShadow(shadowCtx);
             }
         });
         // Turtle shadows
@@ -304,6 +313,12 @@ export function animate(currentTime, addRippleFn) {
     predators.forEach(p => {
         p.update(fish, dt);
         p.draw(ctx);
+    });
+    
+    // Update and draw crocodiles (apex predators, also under lily pads)
+    crocodiles.forEach(c => {
+        c.update(predators, dt);
+        c.draw(ctx);
     });
     
     // Update and draw turtles (also under lily pads)
@@ -352,6 +367,9 @@ export function animate(currentTime, addRippleFn) {
 
     // Fish reproduction
     handleReproduction(dt, w, h);
+    
+    // Predator respawn (maintain minimum population for crocodile)
+    handlePredatorRespawn(dt, w, h, predators);
 
     requestAnimationFrame((t) => animate(t, addRippleFn));
 }
@@ -425,10 +443,36 @@ function handleReproduction(dt, w, h) {
     }
 }
 
+// Handle predator respawn to maintain population
+function handlePredatorRespawn(dt, w, h, predators) {
+    // Only spawn if predator count is low (to ensure crocodile has prey)
+    if (predators.length <= 1) {
+        // Spawn chance - not too frequent
+        if (Math.random() < 0.01 * dt * 60) {
+            // Spawn near edges like initial spawn
+            let x, y;
+            if (Math.random() < 0.5) {
+                x = Math.random() < 0.5 ? rand(50, 150) : rand(w - 150, w - 50);
+                y = rand(100, h - 100);
+            } else {
+                x = rand(100, w - 100);
+                y = Math.random() < 0.5 ? rand(50, 150) : rand(h - 150, h - 50);
+            }
+            
+            // Create new predator
+            const newPredator = new PredatorFish(x, y);
+            predators.push(newPredator);
+            
+            // Create spawn ripple
+            ripplePool.acquire(x, y, 5, 80, 2);
+        }
+    }
+}
+
 // Update stats display
 function updateStatsDisplay() {
     if (!entities) return;
-    const { fish, predators, turtles, snails, frogs } = entities;
+    const { fish, predators, crocodiles, turtles, snails, frogs } = entities;
     const actualFPS = performanceManager.getActualFPS();
     
     // Update FPS display
@@ -442,20 +486,30 @@ function updateStatsDisplay() {
     const statFrogs = document.getElementById('stat-frogs');
     const statTurtles = document.getElementById('stat-turtles');
     const statSnails = document.getElementById('stat-snails');
+    const statCrocodiles = document.getElementById('stat-crocodiles');
     const statHunts = document.getElementById('stat-hunts');
     const statKills = document.getElementById('stat-kills');
+    const statCrocHunts = document.getElementById('stat-croc-hunts');
+    const statCrocKills = document.getElementById('stat-croc-kills');
     if (statFish) statFish.textContent = fish.length;
     if (statRipples) statRipples.textContent = ripplePool.getActiveCount();
     if (statFood) statFood.textContent = foodPool.getActiveCount();
     if (statFrogs) statFrogs.textContent = frogs.length;
     if (statTurtles) statTurtles.textContent = turtles.length;
     if (statSnails && snails) statSnails.textContent = snails.length;
+    if (statCrocodiles && crocodiles) statCrocodiles.textContent = crocodiles.length;
     
     // Predator stats
     let totalHunts = 0, totalKills = 0;
     predators.forEach(p => { totalHunts += p.huntCount; totalKills += p.killCount; });
     if (statHunts) statHunts.textContent = totalHunts;
     if (statKills) statKills.textContent = totalKills;
+    
+    // Crocodile stats
+    let totalCrocHunts = 0, totalCrocKills = 0;
+    crocodiles.forEach(c => { totalCrocHunts += c.huntCount; totalCrocKills += c.killCount; });
+    if (statCrocHunts) statCrocHunts.textContent = totalCrocHunts;
+    if (statCrocKills) statCrocKills.textContent = totalCrocKills;
     
     // Birth stats
     const statBirths = document.getElementById('stat-births');
@@ -466,11 +520,15 @@ function updateStatsDisplay() {
     const overlayBirths = document.getElementById('overlay-births');
     const overlayPredators = document.getElementById('overlay-predators');
     const overlayKills = document.getElementById('overlay-kills');
+    const overlayCrocodiles = document.getElementById('overlay-crocodiles');
+    const overlayCrocKills = document.getElementById('overlay-croc-kills');
     const overlayFps = document.getElementById('overlay-fps');
     
     if (overlayFish) overlayFish.textContent = fish.length;
     if (overlayBirths) overlayBirths.textContent = birthCountRef.count;
     if (overlayPredators) overlayPredators.textContent = predators.length;
     if (overlayKills) overlayKills.textContent = totalKills;
+    if (overlayCrocodiles) overlayCrocodiles.textContent = crocodiles.length;
+    if (overlayCrocKills) overlayCrocKills.textContent = totalCrocKills;
     if (overlayFps) overlayFps.textContent = actualFPS;
 }

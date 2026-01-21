@@ -37,6 +37,14 @@
             <span class="stat-value predator" id="overlay-kills">0</span>
         </div>
         <div class="stat-row">
+            <span class="stat-label">Crocodiles</span>
+            <span class="stat-value" style="color: #6b8e4e;" id="overlay-crocodiles">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Croc Kills</span>
+            <span class="stat-value" style="color: #6b8e4e;" id="overlay-croc-kills">0</span>
+        </div>
+        <div class="stat-row">
             <span class="stat-label">FPS</span>
             <span class="stat-value fps" id="overlay-fps">0</span>
         </div>
@@ -269,6 +277,45 @@
         
         <div style="margin-top: 8px; font-family: monospace; font-size: 11px; color: #ff6b6b;">
             <div>Hunts: <span id="stat-hunts">0</span> | Kills: <span id="stat-kills">0</span></div>
+        </div>
+    </div>
+
+    <h3>Crocodiles 🐊</h3>
+    <div class="control-group">
+        <div class="control-label">Crocodile Count <span id="val-crocodileCount" class="val-display"></span></div>
+        <input type="range" id="inp-crocodileCount" min="0" max="3" step="1">
+        
+        <div class="control-label">Size <span id="val-crocodileSizeMin" class="val-display"></span>-<span id="val-crocodileSizeMax" class="val-display"></span></div>
+        <div class="dual-range" data-min-id="inp-crocodileSizeMin" data-max-id="inp-crocodileSizeMax">
+            <div class="dual-range-track"></div>
+            <div class="dual-range-fill"></div>
+            <input type="range" id="inp-crocodileSizeMin" min="20" max="80" step="1">
+            <input type="range" id="inp-crocodileSizeMax" min="20" max="80" step="1">
+        </div>
+        
+        <div class="control-label">Base Speed <span id="val-crocodileBaseSpeed" class="val-display"></span></div>
+        <input type="range" id="inp-crocodileBaseSpeed" min="0.1" max="1.5" step="0.05">
+        
+        <div class="control-label">Hunt Success <span id="val-crocodileHuntSuccessRate" class="val-display"></span></div>
+        <input type="range" id="inp-crocodileHuntSuccessRate" min="0" max="1.0" step="0.05">
+        
+        <div class="control-label">Detection Range <span id="val-crocodileDetectionRange" class="val-display"></span></div>
+        <input type="range" id="inp-crocodileDetectionRange" min="100" max="400" step="10">
+        
+        <div class="control-label">Attack Speed <span id="val-crocodileAttackSpeed" class="val-display"></span></div>
+        <input type="range" id="inp-crocodileAttackSpeed" min="1.0" max="6.0" step="0.5">
+        
+        <div class="control-label">Rest Time <span id="val-crocodileRestTime" class="val-display"></span></div>
+        <input type="range" id="inp-crocodileRestTime" min="100" max="800" step="50">
+        
+        <div class="control-label">Body Color</div>
+        <input type="color" id="inp-crocodileBodyColor">
+        
+        <div class="control-label">Eye Color</div>
+        <input type="color" id="inp-crocodileEyeColor">
+        
+        <div style="margin-top: 8px; font-family: monospace; font-size: 11px; color: #6b8e4e;">
+            <div>Hunts: <span id="stat-croc-hunts">0</span> | Kills: <span id="stat-croc-kills">0</span></div>
         </div>
     </div>
 

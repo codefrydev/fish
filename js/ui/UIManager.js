@@ -6,6 +6,7 @@ import { params } from '../config.js';
 let initFishCallback = null;
 let initEnvironmentCallback = null;
 let initPredatorsCallback = null;
+let initCrocodilesCallback = null;
 let initTurtlesCallback = null;
 let initSnailsCallback = null;
 let renderStaticBackgroundCallback = null;
@@ -70,6 +71,7 @@ export function initUI(callbacks) {
     initFishCallback = callbacks.initFish;
     initEnvironmentCallback = callbacks.initEnvironment;
     initPredatorsCallback = callbacks.initPredators;
+    initCrocodilesCallback = callbacks.initCrocodiles;
     initTurtlesCallback = callbacks.initTurtles;
     initSnailsCallback = callbacks.initSnails;
     renderStaticBackgroundCallback = callbacks.renderStaticBackground;
@@ -97,6 +99,9 @@ export function initUI(callbacks) {
         'predatorCount', 'predatorSizeMin', 'predatorSizeMax',
         'predatorHuntSuccessRate', 'predatorDetectionRange',
         'predatorAttackSpeed', 'predatorRestTime',
+        'crocodileCount', 'crocodileSizeMin', 'crocodileSizeMax',
+        'crocodileBaseSpeed', 'crocodileHuntSuccessRate', 'crocodileDetectionRange',
+        'crocodileAttackSpeed', 'crocodileRestTime',
         'turtleCount', 'turtleSizeMin', 'turtleSizeMax',
         'turtleBaseSpeedMin', 'turtleBaseSpeedMax', 'turtleTurnForce',
         'turtleDetectionRange', 'turtleFleeForceMultiplier', 'turtleFoodSeekRange',
@@ -176,6 +181,9 @@ export function initUI(callbacks) {
                 if(key === 'predatorCount' || key.includes('predatorSize')) {
                     if (initPredatorsCallback) initPredatorsCallback();
                 }
+                if(key === 'crocodileCount' || key.includes('crocodileSize')) {
+                    if (initCrocodilesCallback) initCrocodilesCallback();
+                }
                 if(key === 'turtleCount' || key.includes('turtleSize')) {
                     if (initTurtlesCallback) initTurtlesCallback();
                 }
@@ -243,6 +251,8 @@ export function initUI(callbacks) {
     bindColor('inp-grassColor', 'grassColor', initEnvironmentCallback);
     bindColor('inp-foodColor', 'foodColor');
     bindColor('inp-predatorColor', 'predatorColor', initPredatorsCallback);
+    bindColor('inp-crocodileBodyColor', 'crocodileBodyColor', initCrocodilesCallback);
+    bindColor('inp-crocodileEyeColor', 'crocodileEyeColor', initCrocodilesCallback);
     bindColor('inp-turtleColor', 'turtleColor', initTurtlesCallback);
     bindColor('inp-turtlePatternColor', 'turtlePatternColor', initTurtlesCallback);
     bindColor('inp-turtleHeadColor', 'turtleHeadColor', initTurtlesCallback);
@@ -324,6 +334,8 @@ export function initUI(callbacks) {
             if(document.getElementById('inp-padColor')) document.getElementById('inp-padColor').value = params.padColor;
             if(document.getElementById('inp-foodColor')) document.getElementById('inp-foodColor').value = params.foodColor;
             if(document.getElementById('inp-predatorColor')) document.getElementById('inp-predatorColor').value = params.predatorColor;
+            if(document.getElementById('inp-crocodileBodyColor')) document.getElementById('inp-crocodileBodyColor').value = params.crocodileBodyColor;
+            if(document.getElementById('inp-crocodileEyeColor')) document.getElementById('inp-crocodileEyeColor').value = params.crocodileEyeColor;
 
             for(let i=0; i<3; i++) {
                 const pEl = document.getElementById('inp-pebbleColor' + i);

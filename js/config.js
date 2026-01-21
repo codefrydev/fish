@@ -3,8 +3,8 @@
 
 export const params = {
     fishCount: 20,
-    sizeMin: 6,
-    sizeMax: 15,
+    sizeMin: 5,
+    sizeMax: 12,
     spineCount: 14,
     fatness: 1.0,
     tailTaper: 1.5,
@@ -46,9 +46,9 @@ export const params = {
     birthCooldown: 180,
     
     // Predator settings
-    predatorCount: 1,
-    predatorSizeMin: 20,
-    predatorSizeMax: 35,
+    predatorCount: 3,
+    predatorSizeMin: 12,
+    predatorSizeMax: 20,
     predatorHuntSuccessRate: 0.4,
     predatorDetectionRange: 150,
     predatorAttackSpeed: 5.0,
@@ -91,6 +91,20 @@ export const params = {
     snailCrawlSpeed: 0.5,
     snailSwimChance: 0.15,
     snailSwimDuration: 300,
+    
+    // Crocodile settings
+    crocodileCount: 1,
+    crocodileSizeMin: 22,
+    crocodileSizeMax: 30,
+    crocodileBaseSpeed: 0.4,
+    crocodileDetectionRange: 200,
+    crocodileAttackSpeed: 2.5,
+    crocodileHuntSuccessRate: 0.6,
+    crocodileRestTime: 400,
+    crocodileColor: "#3d5a2f",
+    crocodileBodyColor: "#4a6b38",
+    crocodileBellyColor: "#8b9b7a",
+    crocodileEyeColor: "#e8c547",
     
     // === ADVANCED SETTINGS ===
     
@@ -250,7 +264,33 @@ export const params = {
     // Enhanced eye glow
     predatorEyeGlowOuterRadius: 1.8,    // Multiplier for outer glow radius
     predatorEyeGlowPulseSpeed: 0.15,    // Speed of glow pulsing animation
-    predatorEyeGlowIntensity: 1.2       // Intensity multiplier for glow
+    predatorEyeGlowIntensity: 1.2,      // Intensity multiplier for glow
+    
+    // Crocodile Advanced
+    crocodileMaxForceLurking: 0.012,
+    crocodileMaxForceAttacking: 0.12,
+    crocodileMaxForceResting: 0.008,
+    crocodileWanderProbability: 0.015,
+    crocodileWanderMagnitude: 0.25,
+    crocodileDetectingSpeedMult: 0.6,
+    crocodileDetectingSeekMult: 0.4,
+    crocodileDetectionTime: 40,
+    crocodileAttackingSeekMult: 2.5,
+    crocodileCatchDistance: 1.0,
+    crocodileEatingDuration: 80,
+    crocodileEatingSpeed: 0.15,
+    crocodileRestingSpeedMult: 0.25,
+    crocodileRestTimeFailMult: 0.6,
+    crocodileRestTimeGiveUpMult: 0.4,
+    crocodileMaxChaseDistMult: 2.5,
+    crocodileBoundaryMargin: 100,
+    crocodileBodyShadeDark: 0.35,
+    crocodileBodyShadeLight: 0.12,
+    crocodileOutlineDarken: 0.55,
+    crocodileOutlineAlpha: 0.4,
+    crocodileOutlineWidth: 0.08,
+    crocodileEyeSizeRatio: 1.8,
+    crocodileEyeGlowIntensity: 1.0
 };
 
 // Render culling margin

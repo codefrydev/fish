@@ -83,3 +83,4 @@ export class SpatialGrid {
 export const fishGrid = new SpatialGrid(100);
 export const foodGrid = new SpatialGrid(150);
 export const predatorGrid = new SpatialGrid(200);
+export const crocodileGrid = new SpatialGrid(250);

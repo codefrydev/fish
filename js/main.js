@@ -12,6 +12,7 @@ import { LilyPad } from './entities/LilyPad.js';
 import { Frog, setAddRippleFunction as setFrogAddRipple } from './entities/Frog.js';
 import { Koi, setMainContext, setAddRippleFunction as setKoiAddRipple } from './entities/Koi.js';
 import { PredatorFish } from './entities/PredatorFish.js';
+import { Crocodile } from './entities/Crocodile.js';
 import { Turtle, setAddRippleFunction as setTurtleAddRipple } from './entities/Turtle.js';
 import { Snail, setAddRippleFunction as setSnailAddRipple } from './entities/Snail.js';
 import { initCanvases, resize, renderStaticBackground, animate, setEntities } from './managers/RenderManager.js';
@@ -20,6 +21,7 @@ import { initUI } from './ui/UIManager.js';
 // Entity arrays
 let fish = [];
 let predators = [];
+let crocodiles = [];
 let turtles = [];
 let snails = [];
 let pads = [];
@@ -212,9 +214,32 @@ function initSnails() {
     updateEntityReferences();
 }
 
+// Initialize crocodiles
+function initCrocodiles() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    
+    crocodiles = [];
+    for (let i = 0; i < params.crocodileCount; i++) {
+        // Spawn crocodiles near edges (apex predators patrol the perimeter)
+        let x, y;
+        if (Math.random() < 0.5) {
+            x = Math.random() < 0.5 ? rand(50, 120) : rand(w - 120, w - 50);
+            y = rand(150, h - 150);
+        } else {
+            x = rand(150, w - 150);
+            y = Math.random() < 0.5 ? rand(50, 120) : rand(h - 120, h - 50);
+        }
+        crocodiles.push(new Crocodile(x, y));
+    }
+    
+    // Update entity references
+    updateEntityReferences();
+}
+
 // Update entity references in RenderManager
 function updateEntityReferences() {
-    setEntities({ fish, predators, turtles, snails, pads, stones, frogs, grass }, birthCount, mousePos, mouseActive);
+    setEntities({ fish, predators, crocodiles, turtles, snails, pads, stones, frogs, grass }, birthCount, mousePos, mouseActive);
 }
 
 // Add ripple and scatter nearby fish
@@ -287,6 +312,7 @@ function init() {
     // Initialize entities
     initFish();
     initPredators();
+    initCrocodiles();
     initTurtles();
     initSnails();
     
@@ -295,6 +321,7 @@ function init() {
         initFish,
         initEnvironment,
         initPredators,
+        initCrocodiles,
         initTurtles,
         initSnails,
         renderStaticBackground
