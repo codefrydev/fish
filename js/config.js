@@ -121,6 +121,30 @@ export const params = {
     fishFleeForceMultiplier: 4,
     fishInitialSwimTimer: 100,
     
+    // Fish Jumping
+    fishJumpEnabled: true,
+    fishJumpChance: 0.00001,
+    fishJumpFleeChance: 0.0002,
+    fishJumpExcitedChance: 0.0005,
+    fishJumpCooldown: 300,
+    fishJumpHeight: 80,
+    fishJumpDistance: 120,
+    fishJumpDuration: 30,
+    fishJumpGravity: 0.8,
+    fishJumpSplashRadius: 40,
+    
+    // Splash Effects (similar to blood but for water)
+    splashInitialRadius: 6,
+    splashMaxRadius: 80,
+    splashSpreadSpeed: 1.5,
+    splashFadeSpeed: 0.008,
+    splashLifeDuration: 200,
+    splashParticleCount: 8,
+    splashParticleSizeMin: 2,
+    splashParticleSizeMax: 5,
+    splashParticleSpreadSpeedMin: 1.0,
+    splashParticleSpreadSpeedMax: 2.0,
+    
     // Food Spawning Advanced
     foodSizeVariationMin: 0.9,
     foodSizeVariationMax: 1.1,
@@ -203,6 +227,19 @@ export const params = {
     rippleFailRadius: 5,
     rippleFailMaxRadius: 80,
     rippleFailSpeed: 2,
+    
+    // Blood Effects
+    bloodInitialRadius: 8,
+    bloodMaxRadius: 120,
+    bloodSpreadSpeed: 1.2,
+    bloodFadeSpeed: 0.006,
+    bloodLifeDuration: 350,
+    bloodParticleCount: 12,
+    bloodParticleSizeMin: 2,
+    bloodParticleSizeMax: 5,
+    bloodParticleSpreadSpeedMin: 0.8,
+    bloodParticleSpreadSpeedMax: 1.5,
+    bloodColor: "#8b1a1a",
     
     // Rendering & Performance
     shadowUpdateFPS: 30,

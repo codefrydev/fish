@@ -88,6 +88,8 @@ export function initUI(callbacks) {
     const inputs = [
         'fishCount', 'sizeMin', 'sizeMax', 'fatness', 'finScale',
         'speedScale', 'waveSpeedBase', 'waveAmpMax', 'distConstraint',
+        'fishJumpChance', 'fishJumpFleeChance', 'fishJumpExcitedChance',
+        'fishJumpCooldown', 'fishJumpHeight', 'fishJumpDistance',
         'stoneDensity', 'stoneSizeMin', 'stoneSizeMax',
         'padDensity', 'padSizeMin', 'padSizeMax', 'flowerChance', 
         'frogChance', 
@@ -138,6 +140,9 @@ export function initUI(callbacks) {
         'rippleKillMainRadius', 'rippleKillMainMaxRadius', 'rippleKillMainSpeed',
         'rippleKillSecondaryRadius', 'rippleKillSecondaryMaxRadius', 'rippleKillSecondarySpeed',
         'rippleFailRadius', 'rippleFailMaxRadius', 'rippleFailSpeed',
+        'bloodInitialRadius', 'bloodMaxRadius', 'bloodSpreadSpeed', 'bloodFadeSpeed',
+        'bloodLifeDuration', 'bloodParticleCount', 'bloodParticleSizeMin', 'bloodParticleSizeMax',
+        'bloodParticleSpreadSpeedMin', 'bloodParticleSpreadSpeedMax',
         'shadowUpdateFPS', 'shadowOffsetX', 'shadowOffsetY',
         'fishBodyShadeDark', 'fishBodyShadeLight', 'fishBodySolidAlpha',
         'fishPatternEdgeAlpha',
@@ -258,6 +263,7 @@ export function initUI(callbacks) {
     bindColor('inp-turtleHeadColor', 'turtleHeadColor', initTurtlesCallback);
     bindColor('inp-snailShellColor', 'snailShellColor', initSnailsCallback);
     bindColor('inp-snailBodyColor', 'snailBodyColor', initSnailsCallback);
+    bindColor('inp-bloodColor', 'bloodColor');
     
     bindPalette('inp-pebbleColor', 'pebbleColors', initEnvironmentCallback);
     bindPalette('inp-flowerColor', 'flowerColors', initEnvironmentCallback);
@@ -266,6 +272,12 @@ export function initUI(callbacks) {
     if (rainCheck) {
         rainCheck.checked = params.rainMode;
         rainCheck.addEventListener('change', e => { params.rainMode = e.target.checked; });
+    }
+
+    const jumpEnabledCheck = document.getElementById('inp-fishJumpEnabled');
+    if (jumpEnabledCheck) {
+        jumpEnabledCheck.checked = params.fishJumpEnabled;
+        jumpEnabledCheck.addEventListener('change', e => { params.fishJumpEnabled = e.target.checked; });
     }
 
     // Target FPS selector
@@ -336,6 +348,7 @@ export function initUI(callbacks) {
             if(document.getElementById('inp-predatorColor')) document.getElementById('inp-predatorColor').value = params.predatorColor;
             if(document.getElementById('inp-crocodileBodyColor')) document.getElementById('inp-crocodileBodyColor').value = params.crocodileBodyColor;
             if(document.getElementById('inp-crocodileEyeColor')) document.getElementById('inp-crocodileEyeColor').value = params.crocodileEyeColor;
+            if(document.getElementById('inp-bloodColor')) document.getElementById('inp-bloodColor').value = params.bloodColor;
 
             for(let i=0; i<3; i++) {
                 const pEl = document.getElementById('inp-pebbleColor' + i);
@@ -349,6 +362,7 @@ export function initUI(callbacks) {
             if(document.getElementById('inp-flowerType')) document.getElementById('inp-flowerType').value = params.flowerType;
             if(document.getElementById('inp-birthMode')) document.getElementById('inp-birthMode').value = params.birthMode;
             if(document.getElementById('inp-rainMode')) document.getElementById('inp-rainMode').checked = params.rainMode;
+            if(document.getElementById('inp-fishJumpEnabled')) document.getElementById('inp-fishJumpEnabled').checked = params.fishJumpEnabled;
             if(document.getElementById('inp-targetFPS') && params.targetFPS) document.getElementById('inp-targetFPS').value = params.targetFPS;
 
             if (initFishCallback) initFishCallback();

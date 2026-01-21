@@ -245,6 +245,29 @@
         
         <div class="control-label">Fatness <span id="val-fatness" class="val-display"></span></div>
         <input type="range" id="inp-fatness" min="0.5" max="1.5" step="0.05">
+        
+        <div class="control-label" style="margin-top:8px; align-items:center;">
+            <span>Jump Enabled</span>
+            <input type="checkbox" id="inp-fishJumpEnabled" style="width:auto; height:auto; margin:0;">
+        </div>
+        
+        <div class="control-label">Jump Chance <span id="val-fishJumpChance" class="val-display"></span></div>
+        <input type="range" id="inp-fishJumpChance" min="0" max="0.01" step="0.0001">
+        
+        <div class="control-label">Jump Flee Chance <span id="val-fishJumpFleeChance" class="val-display"></span></div>
+        <input type="range" id="inp-fishJumpFleeChance" min="0" max="0.05" step="0.001">
+        
+        <div class="control-label">Jump Excited Chance <span id="val-fishJumpExcitedChance" class="val-display"></span></div>
+        <input type="range" id="inp-fishJumpExcitedChance" min="0" max="0.1" step="0.001">
+        
+        <div class="control-label">Jump Cooldown <span id="val-fishJumpCooldown" class="val-display"></span></div>
+        <input type="range" id="inp-fishJumpCooldown" min="60" max="600" step="30">
+        
+        <div class="control-label">Jump Height <span id="val-fishJumpHeight" class="val-display"></span></div>
+        <input type="range" id="inp-fishJumpHeight" min="30" max="150" step="5">
+        
+        <div class="control-label">Jump Distance <span id="val-fishJumpDistance" class="val-display"></span></div>
+        <input type="range" id="inp-fishJumpDistance" min="50" max="200" step="10">
     </div>
 
     <h3>Predators</h3>
@@ -793,6 +816,47 @@
             
             <div class="control-label">Fail: Speed <span id="val-rippleFailSpeed" class="val-display"></span></div>
             <input type="range" id="inp-rippleFailSpeed" min="0.5" max="5" step="0.5">
+        </div>
+        
+        <!-- Blood Effects -->
+        <h4 style="margin: 12px 0 6px 0; font-size: 11px; color: #d32f2f; text-transform: uppercase; letter-spacing: 0.5px;">Blood Effects</h4>
+        <div class="control-group">
+            <div class="control-label">Initial Radius <span id="val-bloodInitialRadius" class="val-display"></span></div>
+            <input type="range" id="inp-bloodInitialRadius" min="3" max="20" step="1">
+            
+            <div class="control-label">Max Radius <span id="val-bloodMaxRadius" class="val-display"></span></div>
+            <input type="range" id="inp-bloodMaxRadius" min="50" max="250" step="10">
+            
+            <div class="control-label">Spread Speed <span id="val-bloodSpreadSpeed" class="val-display"></span></div>
+            <input type="range" id="inp-bloodSpreadSpeed" min="0.5" max="3.0" step="0.1">
+            
+            <div class="control-label">Fade Speed <span id="val-bloodFadeSpeed" class="val-display"></span></div>
+            <input type="range" id="inp-bloodFadeSpeed" min="0.001" max="0.02" step="0.001">
+            
+            <div class="control-label">Life Duration <span id="val-bloodLifeDuration" class="val-display"></span></div>
+            <input type="range" id="inp-bloodLifeDuration" min="100" max="600" step="25">
+            
+            <div class="control-label">Particle Count <span id="val-bloodParticleCount" class="val-display"></span></div>
+            <input type="range" id="inp-bloodParticleCount" min="5" max="30" step="1">
+            
+            <div class="control-label">Particle Size <span id="val-bloodParticleSizeMin" class="val-display"></span>-<span id="val-bloodParticleSizeMax" class="val-display"></span></div>
+            <div class="dual-range" data-min-id="inp-bloodParticleSizeMin" data-max-id="inp-bloodParticleSizeMax">
+                <div class="dual-range-track"></div>
+                <div class="dual-range-fill"></div>
+                <input type="range" id="inp-bloodParticleSizeMin" min="1" max="8" step="0.5">
+                <input type="range" id="inp-bloodParticleSizeMax" min="1" max="8" step="0.5">
+            </div>
+            
+            <div class="control-label">Particle Spread Speed <span id="val-bloodParticleSpreadSpeedMin" class="val-display"></span>-<span id="val-bloodParticleSpreadSpeedMax" class="val-display"></span></div>
+            <div class="dual-range" data-min-id="inp-bloodParticleSpreadSpeedMin" data-max-id="inp-bloodParticleSpreadSpeedMax">
+                <div class="dual-range-track"></div>
+                <div class="dual-range-fill"></div>
+                <input type="range" id="inp-bloodParticleSpreadSpeedMin" min="0.3" max="2.5" step="0.1">
+                <input type="range" id="inp-bloodParticleSpreadSpeedMax" min="0.3" max="2.5" step="0.1">
+            </div>
+            
+            <div class="control-label">Blood Color</div>
+            <input type="color" id="inp-bloodColor">
         </div>
         
         <!-- Fish 3D Shading -->

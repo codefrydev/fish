@@ -4,7 +4,7 @@ import { Vector } from '../utils/Vector.js';
 import { params, CULL_MARGIN } from '../config.js';
 import { rand, dist, isInView, width, height } from '../utils/helpers.js';
 import { predatorGrid } from '../utils/SpatialGrid.js';
-import { ripplePool } from '../systems/ObjectPool.js';
+import { ripplePool, bloodPool } from '../systems/ObjectPool.js';
 
 export class Crocodile {
     constructor(x, y) {
@@ -140,6 +140,9 @@ export class Crocodile {
                             
                             ripplePool.acquire(this.pos.x, this.pos.y, 15, 200, 3.5);
                             ripplePool.acquire(this.pos.x, this.pos.y, 8, 140, 4.5);
+                            
+                            // Blood spill effect
+                            bloodPool.acquire(this.pos.x, this.pos.y);
                         } else {
                             this.state = 'RESTING';
                             this.restTimer = params.crocodileRestTime * params.crocodileRestTimeFailMult;
@@ -278,12 +281,97 @@ export class Crocodile {
     }
     
     drawBody(ctx, length, width) {
-        // Main body - viewed from above (broader, more rectangular)
+        // Helper function to create crocodile body path - elongated with flatter stomach
+        const createBodyPath = () => {
+            ctx.beginPath();
+            
+            // Define key points for the body shape
+            // Start from tail connection (left side) - connects to tail at -length/2
+            const tailEndX = -length * 0.5;
+            const tailEndY = 0;
+            
+            // Top curve points (back)
+            const topBackX = -length * 0.3;
+            const topBackY = -width * 0.85;
+            
+            // Widest point (middle-top)
+            const midTopX = 0;
+            const midTopY = -width * 0.9;
+            
+            // Front-top (near head)
+            const frontTopX = length * 0.3;
+            const frontTopY = -width * 0.75;
+            
+            // Head connection point (right side) - head starts at size * 1.2
+            const headEndX = length * 0.4;
+            const headEndY = 0;
+            
+            // Front-bottom (near head, flatter)
+            const frontBottomX = length * 0.3;
+            const frontBottomY = width * 0.7;  // Flatter than top
+            
+            // Widest point (middle-bottom, flatter stomach)
+            const midBottomX = 0;
+            const midBottomY = width * 0.75;  // Flatter stomach area
+            
+            // Back-bottom
+            const backBottomX = -length * 0.3;
+            const backBottomY = width * 0.7;  // Flatter than top
+            
+            // Start from tail end, going along top
+            ctx.moveTo(tailEndX, tailEndY);
+            
+            // Top curve: tail -> back -> middle -> front -> head
+            ctx.bezierCurveTo(
+                tailEndX + length * 0.1, -width * 0.4,  // Control point 1
+                topBackX - length * 0.05, topBackY,      // Control point 2
+                topBackX, topBackY                       // End point
+            );
+            ctx.bezierCurveTo(
+                topBackX + length * 0.1, topBackY,
+                midTopX - length * 0.08, midTopY,
+                midTopX, midTopY
+            );
+            ctx.bezierCurveTo(
+                midTopX + length * 0.1, midTopY,
+                frontTopX - length * 0.05, frontTopY,
+                frontTopX, frontTopY
+            );
+            ctx.bezierCurveTo(
+                frontTopX + length * 0.08, frontTopY,
+                headEndX - length * 0.05, -width * 0.3,
+                headEndX, headEndY
+            );
+            
+            // Bottom curve: head -> front -> middle (flatter) -> back -> tail
+            ctx.bezierCurveTo(
+                headEndX - length * 0.05, width * 0.3,
+                frontBottomX + length * 0.08, frontBottomY,
+                frontBottomX, frontBottomY
+            );
+            ctx.bezierCurveTo(
+                frontBottomX - length * 0.05, frontBottomY,
+                midBottomX + length * 0.1, midBottomY,
+                midBottomX, midBottomY
+            );
+            // Flatter stomach area - more horizontal curve
+            ctx.bezierCurveTo(
+                midBottomX - length * 0.1, midBottomY,
+                backBottomX + length * 0.05, backBottomY,
+                backBottomX, backBottomY
+            );
+            ctx.bezierCurveTo(
+                backBottomX - length * 0.05, backBottomY,
+                tailEndX + length * 0.1, width * 0.4,
+                tailEndX, tailEndY
+            );
+            
+            ctx.closePath();
+        };
+        
+        // Main body fill
         ctx.fillStyle = params.crocodileBodyColor;
-        ctx.beginPath();
-        // More rectangular body shape for top view
-        ctx.ellipse(-length * 0.1, 0, length / 2.5, width, 0, 0, Math.PI * 2);
-        ctx.ellipse(length * 0.15, 0, length / 3, width * 0.95, 0, 0, Math.PI * 2);
+        createBodyPath();
         ctx.fill();
         
         // Top-down lighting (sun from above, one side)
@@ -293,9 +381,7 @@ export class Crocodile {
         gradient.addColorStop(0.6, 'rgba(0, 0, 0, 0.05)');
         gradient.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
         ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.ellipse(-length * 0.1, 0, length / 2.5, width, 0, 0, Math.PI * 2);
-        ctx.ellipse(length * 0.15, 0, length / 3, width * 0.95, 0, 0, Math.PI * 2);
+        createBodyPath();
         ctx.fill();
         
         // Osteoderms (armor plates) texture - larger and more prominent
@@ -331,8 +417,7 @@ export class Crocodile {
         // Body outline
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, length / 2, width, 0, 0, Math.PI * 2);
+        createBodyPath();
         ctx.stroke();
     }
     
@@ -383,15 +468,94 @@ export class Crocodile {
         ctx.save();
         ctx.translate(headX, 0);
         
-        // Head base - broad from top view
-        ctx.fillStyle = params.crocodileColor;
-        ctx.beginPath();
-        ctx.ellipse(-length * 0.1, 0, length * 0.4, width * 1.15, 0, 0, Math.PI * 2);
-        ctx.fill();
+        // Helper function to create triangular elongated head path
+        const createHeadPath = () => {
+            ctx.beginPath();
+            
+            // Head base (wider) - where it connects to body
+            // Body ends at bodyLength * 0.4, head is positioned at size * 1.2
+            // bodyLength = size * 2.2, so body ends at size * 0.88
+            // headLength = size * 1.0, head is at size * 1.2
+            // So baseX relative to head: -(1.2 - 0.88) * size / headLength = -0.32 * size / (1.0 * size) = -0.32
+            // But we need to account for headLength scaling, so: -0.32 * (size/headLength) = -0.32
+            // Actually simpler: bodyLength/headLength = 2.2, so body end = headLength * 2.2 * 0.4 = headLength * 0.88
+            // Head position in headLength units = 1.2, so baseX = -(1.2 - 0.88) = -0.32 * headLength
+            const baseX = -length * 0.32;
+            const baseTopY = -width * 1.0;
+            const baseBottomY = width * 0.95;
+            
+            // Head widest point (behind eyes area)
+            const wideX = length * 0.15;
+            const wideTopY = -width * 1.15;
+            const wideBottomY = width * 1.1;
+            
+            // Snout start (narrowing begins)
+            const snoutStartX = length * 0.5;
+            const snoutStartTopY = -width * 0.8;
+            const snoutStartBottomY = width * 0.75;
+            
+            // Snout middle
+            const snoutMidX = length * 1.0;
+            const snoutMidTopY = -width * 0.5;
+            const snoutMidBottomY = width * 0.45;
+            
+            // Snout tip (narrow pointed end)
+            const tipX = length * 1.5;
+            const tipY = 0;
+            
+            // Start from base, going along top
+            ctx.moveTo(baseX, baseTopY);
+            
+            // Top curve: base -> wide -> snout start -> snout mid -> tip (triangular taper)
+            ctx.bezierCurveTo(
+                baseX + length * 0.1, baseTopY,
+                wideX - length * 0.05, wideTopY,
+                wideX, wideTopY
+            );
+            ctx.bezierCurveTo(
+                wideX + length * 0.1, wideTopY,
+                snoutStartX - length * 0.1, snoutStartTopY,
+                snoutStartX, snoutStartTopY
+            );
+            ctx.bezierCurveTo(
+                snoutStartX + length * 0.15, snoutStartTopY,
+                snoutMidX - length * 0.1, snoutMidTopY,
+                snoutMidX, snoutMidTopY
+            );
+            ctx.bezierCurveTo(
+                snoutMidX + length * 0.15, snoutMidTopY,
+                tipX - length * 0.08, -width * 0.1,
+                tipX, tipY
+            );
+            
+            // Bottom curve: tip -> snout mid -> snout start -> wide -> base (flatter stomach area)
+            ctx.bezierCurveTo(
+                tipX - length * 0.08, width * 0.1,
+                snoutMidX + length * 0.15, snoutMidBottomY,
+                snoutMidX, snoutMidBottomY
+            );
+            ctx.bezierCurveTo(
+                snoutMidX - length * 0.1, snoutMidBottomY,
+                snoutStartX + length * 0.15, snoutStartBottomY,
+                snoutStartX, snoutStartBottomY
+            );
+            ctx.bezierCurveTo(
+                snoutStartX - length * 0.1, snoutStartBottomY,
+                wideX + length * 0.1, wideBottomY,
+                wideX, wideBottomY
+            );
+            ctx.bezierCurveTo(
+                wideX - length * 0.05, wideBottomY,
+                baseX + length * 0.1, baseBottomY,
+                baseX, baseBottomY
+            );
+            
+            ctx.closePath();
+        };
         
-        // Snout - tapered from above (narrower at tip)
-        ctx.beginPath();
-        ctx.ellipse(length * 0.5, 0, length * 1.0, width * 0.5, 0, 0, Math.PI * 2);
+        // Head fill
+        ctx.fillStyle = params.crocodileColor;
+        createHeadPath();
         ctx.fill();
         
         // Top-down lighting on head and snout
@@ -404,21 +568,13 @@ export class Crocodile {
         headGradient.addColorStop(0.7, 'rgba(0, 0, 0, 0.1)');
         headGradient.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
         ctx.fillStyle = headGradient;
-        ctx.beginPath();
-        ctx.ellipse(-length * 0.1, 0, length * 0.4, width * 1.15, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.ellipse(length * 0.5, 0, length * 1.0, width * 0.5, 0, 0, Math.PI * 2);
+        createHeadPath();
         ctx.fill();
         
         // Head and snout outline
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.ellipse(-length * 0.1, 0, length * 0.4, width * 1.15, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.ellipse(length * 0.5, 0, length * 1.0, width * 0.5, 0, 0, Math.PI * 2);
+        createHeadPath();
         ctx.stroke();
         
         // Nostrils at tip - visible from top
@@ -550,61 +706,168 @@ export class Crocodile {
         ctx.save();
         ctx.translate(tailStartX, 0);
         
-        // Tail segments (4 segments for smoother taper)
-        const segments = 4;
-        for (let i = 0; i < segments; i++) {
-            const segmentProgress = i / segments;
-            const nextProgress = (i + 1) / segments;
-            
-            const x = -i * tailLength / segments;
-            const nextX = -(i + 1) * tailLength / segments;
-            
-            const widthStart = bodyWidth * (1 - segmentProgress * 0.75);
-            const widthEnd = bodyWidth * (1 - nextProgress * 0.75);
-            
-            const swayStart = tailSway * segmentProgress * segmentProgress;
-            const swayEnd = tailSway * nextProgress * nextProgress;
-            
-            ctx.fillStyle = params.crocodileBodyColor;
-            
+        // Helper function to create tail path - similar to body stomach (flatter bottom) with tapering
+        const createTailPath = () => {
             ctx.beginPath();
-            ctx.moveTo(x, -widthStart + swayStart);
-            ctx.lineTo(nextX, -widthEnd + swayEnd);
-            ctx.lineTo(nextX, widthEnd + swayEnd);
-            ctx.lineTo(x, widthStart + swayStart);
+            
+            // Helper to get sway at a given progress (0 = base, 1 = tip)
+            const getSway = (progress) => {
+                return tailSway * progress * progress;
+            };
+            
+            // Define key points - matching body shape at connection, then tapering
+            // Body ends at -bodyLength * 0.5 with:
+            // - topBackX = -bodyLength * 0.3, topBackY = -bodyWidth * 0.85
+            // - backBottomX = -bodyLength * 0.3, backBottomY = bodyWidth * 0.7
+            // Tail is translated to -bodyLength/2, so connection is at 0 relative to tail
+            // Match body's width at connection point for smooth transition
+            const bodyEndX = 0;
+            const bodyEndY = 0 + getSway(0);
+            
+            // Connection point - match body's shape exactly
+            // Body has top at -width * 0.85 and bottom at width * 0.7 at the back
+            const connectionTopY = -bodyWidth * 0.85 + getSway(0);
+            const connectionBottomY = bodyWidth * 0.7 + getSway(0);
+            
+            // First quarter - still wide, matching body proportions
+            const quarter1Progress = 0.25;
+            const quarter1X = -tailLength * quarter1Progress;
+            const quarter1Sway = getSway(quarter1Progress);
+            const quarter1TopY = -bodyWidth * 0.85 + quarter1Sway;  // Match body top
+            const quarter1BottomY = bodyWidth * 0.7 + quarter1Sway;  // Match body stomach
+            
+            // Middle - tapering
+            const midProgress = 0.5;
+            const midX = -tailLength * midProgress;
+            const midSway = getSway(midProgress);
+            const midTopY = -bodyWidth * 0.6 + midSway;
+            const midBottomY = bodyWidth * 0.5 + midSway;  // Flatter bottom
+            
+            // Three quarters - more tapered
+            const quarter3Progress = 0.75;
+            const quarter3X = -tailLength * quarter3Progress;
+            const quarter3Sway = getSway(quarter3Progress);
+            const quarter3TopY = -bodyWidth * 0.35 + quarter3Sway;
+            const quarter3BottomY = bodyWidth * 0.3 + quarter3Sway;  // Flatter bottom
+            
+            // Tail tip
+            const tipX = -tailLength;
+            const tipY = 0 + getSway(1);
+            
+            // Start from body connection, going along top
+            // Match body's curve direction - body curves from tailEndX with control point
+            // tailEndX + length * 0.1, -width * 0.4 going to topBackX, topBackY
+            ctx.moveTo(bodyEndX, connectionTopY);
+            
+            // Top curve: body -> quarter1 -> mid -> quarter3 -> tip
+            // First curve matches body's curve direction for smooth connection
+            ctx.bezierCurveTo(
+                bodyEndX - tailLength * 0.1, connectionTopY,  // Match body's control point direction
+                quarter1X + tailLength * 0.05, quarter1TopY,
+                quarter1X, quarter1TopY
+            );
+            ctx.bezierCurveTo(
+                quarter1X - tailLength * 0.08, quarter1TopY,
+                midX + tailLength * 0.06, midTopY,
+                midX, midTopY
+            );
+            ctx.bezierCurveTo(
+                midX - tailLength * 0.08, midTopY,
+                quarter3X + tailLength * 0.06, quarter3TopY,
+                quarter3X, quarter3TopY
+            );
+            ctx.bezierCurveTo(
+                quarter3X - tailLength * 0.08, quarter3TopY,
+                tipX + tailLength * 0.05, -bodyWidth * 0.1,
+                tipX, tipY
+            );
+            
+            // Bottom curve: tip -> quarter3 -> mid -> quarter1 -> body (flatter stomach area)
+            ctx.bezierCurveTo(
+                tipX + tailLength * 0.05, bodyWidth * 0.1,
+                quarter3X - tailLength * 0.08, quarter3BottomY,
+                quarter3X, quarter3BottomY
+            );
+            ctx.bezierCurveTo(
+                quarter3X + tailLength * 0.06, quarter3BottomY,
+                midX - tailLength * 0.08, midBottomY,
+                midX, midBottomY
+            );
+            // Flatter stomach area - more horizontal curve (like body)
+            ctx.bezierCurveTo(
+                midX + tailLength * 0.06, midBottomY,
+                quarter1X - tailLength * 0.08, quarter1BottomY,
+                quarter1X, quarter1BottomY
+            );
+            // Last curve matches body's curve direction for smooth connection
+            // Body curves from backBottomX with control point tailEndX + length * 0.1, width * 0.4
+            ctx.bezierCurveTo(
+                quarter1X + tailLength * 0.05, quarter1BottomY,
+                bodyEndX - tailLength * 0.1, connectionBottomY,  // Match body's control point direction
+                bodyEndX, connectionBottomY
+            );
+            
+            // Close path from bottom connection back to top connection
+            ctx.lineTo(bodyEndX, connectionTopY);
+            ctx.closePath();
+        };
+        
+        // Draw main tail fill
+        ctx.fillStyle = params.crocodileBodyColor;
+        createTailPath();
+        ctx.fill();
+        
+        // Tail gradient
+        const tailGradient = ctx.createLinearGradient(0, -bodyWidth, -tailLength, bodyWidth * 0.3);
+        tailGradient.addColorStop(0, 'rgba(0, 0, 0, 0.3)');
+        tailGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
+        tailGradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
+        ctx.fillStyle = tailGradient;
+        createTailPath();
+        ctx.fill();
+        
+        // Tail outline
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.lineWidth = 1.5;
+        createTailPath();
+        ctx.stroke();
+        
+        // Distinct darker bands/stripes on tail - more defined toward tip (inspired by image)
+        const bandCount = 6;
+        for (let i = 0; i < bandCount; i++) {
+            const progress = (i + 0.5) / (bandCount + 1);
+            const bandX = -progress * tailLength;
+            const bandSway = tailSway * progress * progress;
+            
+            // Calculate band width - wider toward base, narrower toward tip
+            const bandWidth = tailLength * 0.12 * (1 - progress * 0.4);
+            
+            // Calculate band Y positions based on tail shape
+            let topY, bottomY;
+            if (progress < 0.25) {
+                topY = -bodyWidth * 0.85 * (1 - progress * 2) + bandSway;
+                bottomY = bodyWidth * 0.7 * (1 - progress * 2) + bandSway;
+            } else if (progress < 0.5) {
+                topY = -bodyWidth * 0.6 * (1 - (progress - 0.25) * 2) + bandSway;
+                bottomY = bodyWidth * 0.5 * (1 - (progress - 0.25) * 2) + bandSway;
+            } else if (progress < 0.75) {
+                topY = -bodyWidth * 0.35 * (1 - (progress - 0.5) * 2) + bandSway;
+                bottomY = bodyWidth * 0.3 * (1 - (progress - 0.5) * 2) + bandSway;
+            } else {
+                topY = -bodyWidth * 0.1 * (1 - (progress - 0.75) * 2) + bandSway;
+                bottomY = bodyWidth * 0.1 * (1 - (progress - 0.75) * 2) + bandSway;
+            }
+            
+            // Draw darker band - more prominent toward tip
+            const bandIntensity = 0.3 + progress * 0.4;  // Darker toward tip
+            ctx.fillStyle = `rgba(25, 45, 20, ${bandIntensity})`;
+            ctx.beginPath();
+            ctx.moveTo(bandX - bandWidth/2, topY);
+            ctx.lineTo(bandX + bandWidth/2, topY);
+            ctx.lineTo(bandX + bandWidth/2, bottomY);
+            ctx.lineTo(bandX - bandWidth/2, bottomY);
             ctx.closePath();
             ctx.fill();
-            
-            // Gradient on tail
-            const tailGradient = ctx.createLinearGradient(x, -widthStart, x, widthStart);
-            tailGradient.addColorStop(0, 'rgba(0, 0, 0, 0.3)');
-            tailGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
-            tailGradient.addColorStop(1, 'rgba(0, 0, 0, 0.2)');
-            ctx.fillStyle = tailGradient;
-            ctx.fill();
-            
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-            
-            // Tail ridges (smaller version of dorsal ridges)
-            if (i < segments - 1) {
-                const ridgeX = (x + nextX) / 2;
-                const ridgeY = swayStart * 0.5;
-                const ridgeHeight = this.size * 0.15;
-                const ridgeWidth = this.size * 0.12;
-                
-                ctx.fillStyle = 'rgba(35, 55, 25, 0.8)';
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(ridgeX - ridgeWidth/2, -widthStart * 0.9 + ridgeY);
-                ctx.lineTo(ridgeX, -widthStart * 0.9 - ridgeHeight + ridgeY);
-                ctx.lineTo(ridgeX + ridgeWidth/2, -widthStart * 0.9 + ridgeY);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-            }
         }
         
         // Tail fin - more prominent

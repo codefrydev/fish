@@ -3,7 +3,7 @@
 import { params, CULL_MARGIN } from '../config.js';
 import { setDimensions, isInView, rand } from '../utils/helpers.js';
 import { fishGrid, foodGrid, predatorGrid, crocodileGrid } from '../utils/SpatialGrid.js';
-import { ripplePool, foodPool, updatePooledRipple, drawPooledRipple, updatePooledFood, drawPooledFood } from '../systems/ObjectPool.js';
+import { ripplePool, foodPool, bloodPool, splashPool, updatePooledRipple, drawPooledRipple, updatePooledFood, drawPooledFood, updatePooledBlood, drawPooledBlood, updatePooledSplash, drawPooledSplash } from '../systems/ObjectPool.js';
 import { performanceManager } from '../systems/PerformanceManager.js';
 import { setMainContext, Koi } from '../entities/Koi.js';
 import { PredatorFish } from '../entities/PredatorFish.js';
@@ -362,6 +362,34 @@ export function animate(currentTime, addRippleFn) {
         }
         if (!alive) {
             ripplePool.release(ripple);
+        }
+    }
+
+    // Update and draw pooled blood effects (swap-and-pop for removal, with culling)
+    const activeBlood = bloodPool.getActive();
+    for (let i = activeBlood.length - 1; i >= 0; i--) {
+        const blood = activeBlood[i];
+        const alive = updatePooledBlood(blood, dt);
+        // Only draw if in view (use blood radius for margin)
+        if (isInView(blood.x, blood.y, CULL_MARGIN + blood.radius)) {
+            drawPooledBlood(blood, ctx);
+        }
+        if (!alive) {
+            bloodPool.release(blood);
+        }
+    }
+
+    // Update and draw pooled splash effects (swap-and-pop for removal, with culling)
+    const activeSplashes = splashPool.getActive();
+    for (let i = activeSplashes.length - 1; i >= 0; i--) {
+        const splash = activeSplashes[i];
+        const alive = updatePooledSplash(splash, dt);
+        // Only draw if in view (use splash radius for margin)
+        if (isInView(splash.x, splash.y, CULL_MARGIN + splash.radius)) {
+            drawPooledSplash(splash, ctx);
+        }
+        if (!alive) {
+            splashPool.release(splash);
         }
     }
 

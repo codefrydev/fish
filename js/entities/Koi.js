@@ -4,7 +4,7 @@ import { Vector } from '../utils/Vector.js';
 import { params, CULL_MARGIN } from '../config.js';
 import { rand, isInView, width, height } from '../utils/helpers.js';
 import { fishGrid, foodGrid, predatorGrid } from '../utils/SpatialGrid.js';
-import { ripplePool } from '../systems/ObjectPool.js';
+import { ripplePool, splashPool } from '../systems/ObjectPool.js';
 
 // Reference to main canvas context (will be set externally)
 let mainCtx = null;
@@ -105,6 +105,15 @@ export class Koi {
         }
 
         this.finsAngle = 0;
+        
+        // Jump state management
+        this.jumpState = null; // null, 'JUMPING', or 'LANDING'
+        this.jumpTimer = 0;
+        this.jumpVelocity = new Vector(0, 0);
+        this.jumpCooldown = 0;
+        this.lastJumpTime = 0;
+        this.jumpStartPos = null;
+        this.isExcited = false; // Track if fish is excited (near food or just ate)
     }
 
     initSpine(x, y) {
@@ -236,7 +245,47 @@ export class Koi {
         shadowCtx.restore();
     }
 
+    tryJump(context = 'normal') {
+        // Don't jump if disabled, already jumping, or on cooldown
+        if (!params.fishJumpEnabled || this.jumpState !== null || this.jumpCooldown > 0) {
+            return false;
+        }
+        
+        // Determine jump chance based on context
+        let jumpChance = params.fishJumpChance;
+        if (context === 'fleeing') {
+            jumpChance = params.fishJumpFleeChance;
+        } else if (context === 'excited') {
+            jumpChance = params.fishJumpExcitedChance;
+        }
+        
+        // Check if jump should occur
+        if (Math.random() < jumpChance) {
+            // For top-down view: fish jumps straight up (vertically) out of water
+            // No horizontal movement - just vertical jump
+            const verticalSpeed = Math.sqrt(2 * params.fishJumpGravity * params.fishJumpHeight);
+            
+            // Jump straight up (negative Y is up in screen coordinates)
+            this.jumpVelocity = new Vector(0, -verticalSpeed);
+            
+            // Set jump state
+            this.jumpState = 'JUMPING';
+            this.jumpTimer = 0;
+            this.jumpStartPos = new Vector(this.pos.x, this.pos.y);
+            this.jumpCooldown = params.fishJumpCooldown;
+            
+            return true;
+        }
+        
+        return false;
+    }
+
     behaviors(fishList, foodList) {
+        // Don't apply normal behaviors if jumping
+        if (this.jumpState !== null) {
+            return;
+        }
+        
         this.maxForce = params.turnForce;
         this.maxSpeed = this.baseSpeed * params.speedScale;
 
@@ -269,6 +318,7 @@ export class Koi {
             food => !food.eaten
         );
         
+        let isExcited = false;
         if (nearbyFoods.length > 0) {
             // Find closest food from nearby
             let closestFood = null;
@@ -287,15 +337,23 @@ export class Koi {
                 seekForce.mult(2.5); 
                 this.applyForce(seekForce);
                 
+                // Mark as excited when near food
+                if (minDistSq < 90000) { // 300 * 300
+                    isExcited = true;
+                }
+                
                 if (minDistSq < 100) { // 10 * 10
                     closestFood.eaten = true;
                     this.swimTimer += 2;
+                    isExcited = true; // Just ate - very excited!
                     if (addRippleFn) {
                         addRippleFn(closestFood.pos.x, closestFood.pos.y);
                     }
                 }
             }
         }
+        
+        this.isExcited = isExcited;
         
         // Use spatial grid for efficient separation (fish avoidance)
         const nearbyFish = fishGrid.getNearby(this.pos.x, this.pos.y, 50);
@@ -327,12 +385,15 @@ export class Koi {
         // PREDATOR AVOIDANCE - highest priority
         const nearbyPredators = predatorGrid.getNearby(this.pos.x, this.pos.y, params.predatorDetectionRange * 1.5);
         
+        let isFleeing = false;
         for (const predator of nearbyPredators) {
             const dx = this.pos.x - predator.pos.x;
             const dy = this.pos.y - predator.pos.y;
             const d = Math.sqrt(dx * dx + dy * dy);
             
             if (d < params.predatorDetectionRange * 1.2 && d > 0) {
+                isFleeing = true;
+                
                 // Strong flee force - inversely proportional to distance
                 let fleeForce = new Vector(dx / d, dy / d);
                 const urgency = 1 - (d / (params.predatorDetectionRange * 1.2));
@@ -349,6 +410,16 @@ export class Koi {
                 this.applyForce(steer);
             }
         }
+        
+        // Try to jump based on context
+        if (isFleeing) {
+            this.tryJump('fleeing');
+        } else if (this.isExcited) {
+            this.tryJump('excited');
+        } else {
+            // Random jump chance during normal swimming
+            this.tryJump('normal');
+        }
     }
 
     applyForce(force) {
@@ -358,6 +429,94 @@ export class Koi {
     update(dt = 1/60) {
         const scale = dt * 60; // Normalize to 60 FPS
         
+        // Update jump cooldown
+        if (this.jumpCooldown > 0) {
+            this.jumpCooldown -= scale;
+        }
+        
+        // Handle jump physics
+        if (this.jumpState === 'JUMPING') {
+            this.jumpTimer += scale;
+            
+            // Apply gravity to vertical component
+            this.jumpVelocity.y += params.fishJumpGravity * scale;
+            
+            // Update position with jump velocity
+            this.pos.x += this.jumpVelocity.x * scale;
+            this.pos.y += this.jumpVelocity.y * scale;
+            
+            // For top-down view: fish jumps straight up, so keep X position fixed
+            // Keep X at starting position (fish doesn't move horizontally during jump)
+            this.pos.x = this.jumpStartPos.x;
+            
+            // Keep fish in bounds (just in case)
+            const margin = 50;
+            if (this.pos.x < margin) {
+                this.pos.x = margin;
+                this.jumpStartPos.x = margin;
+            } else if (this.pos.x > width - margin) {
+                this.pos.x = width - margin;
+                this.jumpStartPos.x = width - margin;
+            }
+            
+            // Check if fish has landed (vertical velocity becomes positive = falling down)
+            // Or if jump duration exceeded
+            if (this.jumpVelocity.y > 0 && this.jumpTimer > params.fishJumpDuration * 0.3) {
+                // Check if we've reached water level (or exceeded jump duration)
+                const waterLevel = this.jumpStartPos.y; // Starting y is water level
+                if (this.pos.y >= waterLevel || this.jumpTimer >= params.fishJumpDuration) {
+                    // Ensure fish lands back at starting position
+                    this.pos.x = this.jumpStartPos.x;
+                    this.pos.y = waterLevel;
+                    
+                    // Landed - create splash effect (similar to blood but water-colored)
+                    splashPool.acquire(this.pos.x, this.pos.y);
+                    // Create additional smaller splashes for effect
+                    for (let i = 0; i < 2; i++) {
+                        const offsetX = (Math.random() - 0.5) * params.fishJumpSplashRadius;
+                        const offsetY = (Math.random() - 0.5) * params.fishJumpSplashRadius;
+                        splashPool.acquire(this.pos.x + offsetX, this.pos.y + offsetY);
+                    }
+                    
+                    // Reset jump state
+                    this.jumpState = null;
+                    this.jumpTimer = 0;
+                    this.jumpVelocity = new Vector(0, 0);
+                    
+                    // Reset velocity to normal swimming (preserve any existing velocity)
+                    // Fish continues swimming normally after landing
+                }
+            }
+            
+            // Update spine for jumping fish (less wavy during jump)
+            this.spine[0].pos = new Vector(this.pos.x, this.pos.y);
+            for (let i = 1; i < this.spineLength; i++) {
+                let prev = this.spine[i - 1].pos;
+                let curr = this.spine[i].pos;
+                
+                let dx = curr.x - prev.x;
+                let dy = curr.y - prev.y;
+                let angle = Math.atan2(dy, dx);
+                
+                // Reduced wave during jump
+                let waveAmt = Math.min(params.waveAmpMax * 0.3, i * params.waveAmpGain * 0.3);
+                let wave = Math.sin(this.swimTimer - i * params.fishWavePhaseOffset) * waveAmt;
+                angle += wave;
+                
+                const segDist = this.size * params.distConstraint;
+                curr.x = prev.x + Math.cos(angle) * segDist;
+                curr.y = prev.y + Math.sin(angle) * segDist;
+                curr.size = this.calculateThickness(i);
+            }
+            
+            // Continue swim timer for animation
+            this.swimTimer += (params.waveSpeedBase + (this.jumpVelocity.mag() * params.waveSpeedMult)) * scale;
+            this.finsAngle = this.swimTimer;
+            
+            return; // Skip normal physics update during jump
+        }
+        
+        // Normal physics update (when not jumping)
         // Scale velocity changes by delta time
         this.vel.x += this.acc.x * scale;
         this.vel.y += this.acc.y * scale;

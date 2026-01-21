@@ -4,7 +4,7 @@ import { Vector } from '../utils/Vector.js';
 import { params, CULL_MARGIN } from '../config.js';
 import { rand, dist, isInView, width, height } from '../utils/helpers.js';
 import { fishGrid } from '../utils/SpatialGrid.js';
-import { ripplePool } from '../systems/ObjectPool.js';
+import { ripplePool, bloodPool } from '../systems/ObjectPool.js';
 
 function clamp01(value) {
     return Math.max(0, Math.min(1, value));
@@ -223,6 +223,9 @@ export class PredatorFish {
                             // Big splash effect
                             ripplePool.acquire(this.pos.x, this.pos.y, params.rippleKillMainRadius, params.rippleKillMainMaxRadius, params.rippleKillMainSpeed);
                             ripplePool.acquire(this.pos.x, this.pos.y, params.rippleKillSecondaryRadius, params.rippleKillSecondaryMaxRadius, params.rippleKillSecondarySpeed);
+                            
+                            // Blood spill effect
+                            bloodPool.acquire(this.pos.x, this.pos.y);
                         } else {
                             // Failed - koi escaped
                             this.state = 'RESTING';
