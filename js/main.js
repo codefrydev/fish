@@ -12,12 +12,16 @@ import { LilyPad } from './entities/LilyPad.js';
 import { Frog, setAddRippleFunction as setFrogAddRipple } from './entities/Frog.js';
 import { Koi, setMainContext, setAddRippleFunction as setKoiAddRipple } from './entities/Koi.js';
 import { PredatorFish } from './entities/PredatorFish.js';
+import { Turtle, setAddRippleFunction as setTurtleAddRipple } from './entities/Turtle.js';
+import { Snail, setAddRippleFunction as setSnailAddRipple } from './entities/Snail.js';
 import { initCanvases, resize, renderStaticBackground, animate, setEntities } from './managers/RenderManager.js';
 import { initUI } from './ui/UIManager.js';
 
 // Entity arrays
 let fish = [];
 let predators = [];
+let turtles = [];
+let snails = [];
 let pads = [];
 let stones = [];
 let frogs = [];
@@ -25,6 +29,10 @@ let grass = [];
 
 // Stats
 let birthCount = { count: 0 };
+
+// Mouse tracking for tamed turtles
+let mousePos = { x: 0, y: 0 };
+let mouseActive = false;
 
 // Initialize environment (stones, lily pads, grass, frogs)
 function initEnvironment() {
@@ -151,9 +159,62 @@ function initPredators() {
     updateEntityReferences();
 }
 
+// Initialize turtles
+function initTurtles() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    
+    turtles = [];
+    for (let i = 0; i < params.turtleCount; i++) {
+        // Spawn turtles in random locations
+        const x = rand(w * 0.2, w * 0.8);
+        const y = rand(h * 0.2, h * 0.8);
+        turtles.push(new Turtle(x, y));
+    }
+    
+    // Update entity references
+    updateEntityReferences();
+}
+
+// Initialize snails
+function initSnails() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    
+    snails = [];
+    for (let i = 0; i < params.snailCount; i++) {
+        // Spawn snails near lily pads or stones
+        if (pads.length > 0 && Math.random() < 0.7) {
+            // Spawn near a lily pad
+            const pad = pads[Math.floor(Math.random() * pads.length)];
+            const angle = rand(0, Math.PI * 2);
+            const distance = pad.radius + rand(5, 30);
+            const x = pad.x + Math.cos(angle) * distance;
+            const y = pad.y + Math.sin(angle) * distance;
+            snails.push(new Snail(x, y));
+        } else if (stones.length > 0) {
+            // Spawn near a stone
+            const stone = stones[Math.floor(Math.random() * stones.length)];
+            const angle = rand(0, Math.PI * 2);
+            const distance = stone.size + rand(5, 20);
+            const x = stone.x + Math.cos(angle) * distance;
+            const y = stone.y + Math.sin(angle) * distance;
+            snails.push(new Snail(x, y));
+        } else {
+            // Random spawn
+            const x = rand(w * 0.2, w * 0.8);
+            const y = rand(h * 0.2, h * 0.8);
+            snails.push(new Snail(x, y));
+        }
+    }
+    
+    // Update entity references
+    updateEntityReferences();
+}
+
 // Update entity references in RenderManager
 function updateEntityReferences() {
-    setEntities({ fish, predators, pads, stones, frogs, grass }, birthCount);
+    setEntities({ fish, predators, turtles, snails, pads, stones, frogs, grass }, birthCount, mousePos, mouseActive);
 }
 
 // Add ripple and scatter nearby fish
@@ -176,17 +237,29 @@ function addRipple(x, y) {
 
 // Handle click/touch interaction
 function handleInteraction(x, y) {
-    let hitFrog = false;
-    // Check frog click
-    for (let f of frogs) {
-        if (f.state !== 'DIVING' && dist(x, y, f.pos.x, f.pos.y) < f.size * 2) {
-            f.scare();
-            hitFrog = true;
+    let hitSomething = false;
+    
+    // Check turtle click (highest priority - taming)
+    for (let t of turtles) {
+        if (t.isPointInside(x, y)) {
+            t.tame();
+            hitSomething = true;
             break; // One at a time
         }
     }
     
-    if (!hitFrog) {
+    // Check frog click
+    if (!hitSomething) {
+        for (let f of frogs) {
+            if (f.state !== 'DIVING' && dist(x, y, f.pos.x, f.pos.y) < f.size * 2) {
+                f.scare();
+                hitSomething = true;
+                break; // One at a time
+            }
+        }
+    }
+    
+    if (!hitSomething) {
         addRipple(x, y);
     }
 }
@@ -202,6 +275,8 @@ function init() {
     // Set up addRipple functions for entities
     setFrogAddRipple(addRipple);
     setKoiAddRipple(addRipple);
+    setTurtleAddRipple(addRipple);
+    setSnailAddRipple(addRipple);
     
     // Resize canvases
     resize(() => {
@@ -212,12 +287,16 @@ function init() {
     // Initialize entities
     initFish();
     initPredators();
+    initTurtles();
+    initSnails();
     
     // Initialize UI
     initUI({
         initFish,
         initEnvironment,
         initPredators,
+        initTurtles,
+        initSnails,
         renderStaticBackground
     });
     
@@ -248,14 +327,38 @@ window.addEventListener('dblclick', e => {
 window.addEventListener('touchstart', e => {
     if(e.target.closest('#controls') || e.target.closest('#menu-btn')) return;
     for (let i = 0; i < e.touches.length; i++) {
+        mousePos.x = e.touches[i].clientX;
+        mousePos.y = e.touches[i].clientY;
+        mouseActive = true;
         handleInteraction(e.touches[i].clientX, e.touches[i].clientY);
     }
 });
 
+window.addEventListener('touchmove', e => {
+    if(e.target.closest('#controls') || e.target.closest('#menu-btn')) return;
+    if (e.touches.length > 0) {
+        mousePos.x = e.touches[0].clientX;
+        mousePos.y = e.touches[0].clientY;
+        mouseActive = true;
+    }
+});
+
+window.addEventListener('touchend', () => {
+    mouseActive = false;
+});
+
 window.addEventListener('mousemove', e => {
+    mousePos.x = e.clientX;
+    mousePos.y = e.clientY;
+    mouseActive = true;
+    
     if(Math.random() < 0.05) {
        // Optional: small trail interaction
     }
+});
+
+window.addEventListener('mouseleave', () => {
+    mouseActive = false;
 });
 
 // Start the application

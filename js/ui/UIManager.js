@@ -6,6 +6,8 @@ import { params } from '../config.js';
 let initFishCallback = null;
 let initEnvironmentCallback = null;
 let initPredatorsCallback = null;
+let initTurtlesCallback = null;
+let initSnailsCallback = null;
 let renderStaticBackgroundCallback = null;
 
 // Initialize dual range sliders
@@ -68,6 +70,8 @@ export function initUI(callbacks) {
     initFishCallback = callbacks.initFish;
     initEnvironmentCallback = callbacks.initEnvironment;
     initPredatorsCallback = callbacks.initPredators;
+    initTurtlesCallback = callbacks.initTurtles;
+    initSnailsCallback = callbacks.initSnails;
     renderStaticBackgroundCallback = callbacks.renderStaticBackground;
     
     // Menu Toggle Logic
@@ -93,6 +97,13 @@ export function initUI(callbacks) {
         'predatorCount', 'predatorSizeMin', 'predatorSizeMax',
         'predatorHuntSuccessRate', 'predatorDetectionRange',
         'predatorAttackSpeed', 'predatorRestTime',
+        'turtleCount', 'turtleSizeMin', 'turtleSizeMax',
+        'turtleBaseSpeedMin', 'turtleBaseSpeedMax', 'turtleTurnForce',
+        'turtleDetectionRange', 'turtleFleeForceMultiplier', 'turtleFoodSeekRange',
+        'turtleTamedDuration',
+        'snailCount', 'snailSizeMin', 'snailSizeMax',
+        'snailSpeedMin', 'snailSpeedMax', 'snailDetectionRange',
+        'snailRetractDuration', 'snailCrawlSpeed', 'snailSwimChance', 'snailSwimDuration',
         // Advanced Settings
         'fishBaseSpeedMin', 'fishBaseSpeedMax',
         'fishThicknessHead', 'fishThicknessNeck', 'fishThicknessTaper',
@@ -112,6 +123,9 @@ export function initUI(callbacks) {
         'lotusOuterPetalCount', 'lotusOuterPetalRadius', 'lotusOuterPetalWidth',
         'lotusOuterPetalHeight', 'lotusCenterRadius', 'lilyPetalCount', 'lilyCenterRadius',
         'frogDiveDuration', 'frogJumpLegLength', 'frogEyeSizeRatio',
+        'frogJumpRange', 'frogSwimSpeedMin', 'frogSwimSpeedMax', 'frogSwimForce', 
+        'frogSwimChance', 'frogSwimSeekRange', 'frogFloatChance', 'frogFloatDuration',
+        'frogFloatDriftSpeed', 'frogFloatBobSpeed', 'frogFloatBobAmount',
         'stoneDensityBase', 'padClusterCountMin', 'padClusterCountMax',
         'padRingRadiusMult', 'padRingVariationMin', 'padRingVariationMax',
         'padClumpedOffsetRange',
@@ -135,7 +149,9 @@ export function initUI(callbacks) {
         'predatorFinAlphaBase', 'predatorFinAlphaMid', 'predatorFinAlphaEdge',
         'predatorOutlineDarken', 'predatorOutlineAlpha', 'predatorOutlineWidth',
         'predatorEyeSizeRatio', 'predatorEyeIrisRatio', 'predatorEyePupilRatio',
-        'predatorEyeAttackGlowAlpha'
+        'predatorEyeAttackGlowAlpha',
+        'predatorEyeGlowOuterRadius', 'predatorEyeGlowPulseSpeed', 'predatorEyeGlowIntensity',
+        'predatorTrailMaxLength', 'predatorTrailFadeTime', 'predatorTrailSpacing', 'predatorTrailAlpha'
     ];
 
     inputs.forEach(key => {
@@ -151,7 +167,7 @@ export function initUI(callbacks) {
                 params[key] = val;
                 disp.textContent = val;
                 
-                if(key === 'fishCount' || (key.includes('size') && !key.includes('predator') && !key.includes('grass'))) {
+                if(key === 'fishCount' || (key.includes('size') && !key.includes('predator') && !key.includes('grass') && !key.includes('turtle'))) {
                     if (initFishCallback) initFishCallback();
                 }
                 if(key.includes('stone') || key.includes('pad') || key.includes('flower') || key.includes('frog') || key.includes('vein') || key.includes('Split') || key.includes('grass')) {
@@ -159,6 +175,12 @@ export function initUI(callbacks) {
                 }
                 if(key === 'predatorCount' || key.includes('predatorSize')) {
                     if (initPredatorsCallback) initPredatorsCallback();
+                }
+                if(key === 'turtleCount' || key.includes('turtleSize')) {
+                    if (initTurtlesCallback) initTurtlesCallback();
+                }
+                if(key === 'snailCount' || key.includes('snailSize')) {
+                    if (initSnailsCallback) initSnailsCallback();
                 }
             });
         }
@@ -221,6 +243,11 @@ export function initUI(callbacks) {
     bindColor('inp-grassColor', 'grassColor', initEnvironmentCallback);
     bindColor('inp-foodColor', 'foodColor');
     bindColor('inp-predatorColor', 'predatorColor', initPredatorsCallback);
+    bindColor('inp-turtleColor', 'turtleColor', initTurtlesCallback);
+    bindColor('inp-turtlePatternColor', 'turtlePatternColor', initTurtlesCallback);
+    bindColor('inp-turtleHeadColor', 'turtleHeadColor', initTurtlesCallback);
+    bindColor('inp-snailShellColor', 'snailShellColor', initSnailsCallback);
+    bindColor('inp-snailBodyColor', 'snailBodyColor', initSnailsCallback);
     
     bindPalette('inp-pebbleColor', 'pebbleColors', initEnvironmentCallback);
     bindPalette('inp-flowerColor', 'flowerColors', initEnvironmentCallback);
@@ -314,6 +341,8 @@ export function initUI(callbacks) {
 
             if (initFishCallback) initFishCallback();
             if (initPredatorsCallback) initPredatorsCallback();
+            if (initTurtlesCallback) initTurtlesCallback();
+            if (initSnailsCallback) initSnailsCallback();
             if (initEnvironmentCallback) initEnvironmentCallback();
             if (renderStaticBackgroundCallback) renderStaticBackgroundCallback();
             initDualRangeSliders(); // Update dual range fills after import

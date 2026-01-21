@@ -73,6 +73,10 @@ export class PredatorFish {
         // Stats
         this.huntCount = 0;
         this.killCount = 0;
+        
+        // Trail system for attack phase
+        this.trail = [];
+        this.lastTrailPos = null;
     }
     
     initSpine(x, y) {
@@ -282,6 +286,9 @@ export class PredatorFish {
         
         // Update spine
         this.updateSpine();
+        
+        // Update trail system
+        this.updateTrail(dt);
     }
     
     stayInBounds() {
@@ -327,8 +334,162 @@ export class PredatorFish {
         }
     }
     
+    updateTrail(dt) {
+        const scale = dt * 60;
+        
+        // Update ages of existing trail points
+        for (let i = this.trail.length - 1; i >= 0; i--) {
+            const point = this.trail[i];
+            point.age += dt;
+            
+            // Calculate alpha based on age (exponential fade for anime effect)
+            const ageFactor = 1 - (point.age / params.predatorTrailFadeTime);
+            point.alpha = Math.max(0, params.predatorTrailAlpha * Math.pow(ageFactor, 1.5));
+            
+            // Remove expired trail points
+            if (point.age >= params.predatorTrailFadeTime) {
+                this.trail.splice(i, 1);
+            }
+        }
+        
+        // Add new trail points only during ATTACKING state
+        if (this.state === 'ATTACKING') {
+            // Calculate eye positions
+            const head = this.spine[0];
+            const neck = this.spine[1];
+            const headAngle = Math.atan2(head.pos.y - neck.pos.y, head.pos.x - neck.pos.x);
+            
+            const s = this.size / 22;
+            const eyeOffset = 7 * s;
+            
+            // Calculate world positions of both eyes
+            const leftEyeX = head.pos.x + Math.cos(headAngle) * eyeOffset + Math.cos(headAngle - Math.PI/2) * eyeOffset;
+            const leftEyeY = head.pos.y + Math.sin(headAngle) * eyeOffset + Math.sin(headAngle - Math.PI/2) * eyeOffset;
+            
+            const rightEyeX = head.pos.x + Math.cos(headAngle) * eyeOffset + Math.cos(headAngle + Math.PI/2) * eyeOffset;
+            const rightEyeY = head.pos.y + Math.sin(headAngle) * eyeOffset + Math.sin(headAngle + Math.PI/2) * eyeOffset;
+            
+            // Check if we should add a new trail point based on distance
+            let shouldAddPoint = false;
+            
+            if (!this.lastTrailPos) {
+                shouldAddPoint = true;
+            } else {
+                const dx = head.pos.x - this.lastTrailPos.x;
+                const dy = head.pos.y - this.lastTrailPos.y;
+                const distSq = dx * dx + dy * dy;
+                const spacingSq = params.predatorTrailSpacing * params.predatorTrailSpacing;
+                
+                if (distSq >= spacingSq) {
+                    shouldAddPoint = true;
+                }
+            }
+            
+            if (shouldAddPoint) {
+                // Add new trail point with eye positions
+                this.trail.push({
+                    leftEye: { x: leftEyeX, y: leftEyeY },
+                    rightEye: { x: rightEyeX, y: rightEyeY },
+                    angle: headAngle,
+                    age: 0,
+                    alpha: params.predatorTrailAlpha,
+                    eyeSize: params.predatorEyeSizeRatio * s,
+                    pupilSize: params.predatorEyeSizeRatio * s * params.predatorEyeIrisRatio * params.predatorEyePupilRatio
+                });
+                
+                this.lastTrailPos = { x: head.pos.x, y: head.pos.y };
+                
+                // Limit trail length
+                if (this.trail.length > params.predatorTrailMaxLength) {
+                    this.trail.shift();
+                }
+            }
+        } else {
+            // Clear trail when not attacking
+            if (this.trail.length > 0) {
+                // Fade out existing trail naturally rather than clearing abruptly
+                // Trail will fade out on its own through the age update above
+            }
+            this.lastTrailPos = null;
+        }
+    }
+    
+    drawTrail(ctx) {
+        if (this.trail.length < 1) return;
+        
+        ctx.save();
+        
+        // Draw anime-style blurred eye after-images (oldest to newest for proper layering)
+        for (let i = 0; i < this.trail.length; i++) {
+            const point = this.trail[i];
+            
+            if (point.alpha <= 0) continue;
+            
+            // Draw each eye's after-image with blur effect
+            this.drawGhostEye(ctx, point.leftEye.x, point.leftEye.y, point.eyeSize, point.pupilSize, point.alpha);
+            this.drawGhostEye(ctx, point.rightEye.x, point.rightEye.y, point.eyeSize, point.pupilSize, point.alpha);
+        }
+        
+        ctx.restore();
+    }
+    
+    drawGhostEye(ctx, x, y, eyeSize, pupilSize, alpha) {
+        // Anime-style blurred glow effect - multiple layers for soft blur
+        const blurLayers = 3;
+        
+        for (let layer = blurLayers; layer >= 1; layer--) {
+            const layerScale = 1 + (layer * 0.4);
+            const layerAlpha = alpha / (layer * 1.5);
+            
+            // Outer glow (red/orange halo)
+            const outerRadius = pupilSize * layerScale * 2.5;
+            const outerGradient = ctx.createRadialGradient(x, y, pupilSize * 0.3, x, y, outerRadius);
+            outerGradient.addColorStop(0, `rgba(255, 60, 40, ${layerAlpha * 0.6})`);
+            outerGradient.addColorStop(0.4, `rgba(255, 80, 50, ${layerAlpha * 0.4})`);
+            outerGradient.addColorStop(0.7, `rgba(255, 100, 60, ${layerAlpha * 0.2})`);
+            outerGradient.addColorStop(1, 'rgba(255, 120, 70, 0)');
+            
+            ctx.fillStyle = outerGradient;
+            ctx.beginPath();
+            ctx.arc(x, y, outerRadius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Core bright spot (hot center)
+        const coreGradient = ctx.createRadialGradient(x, y, 0, x, y, pupilSize * 1.2);
+        coreGradient.addColorStop(0, `rgba(255, 200, 150, ${alpha * 0.9})`);
+        coreGradient.addColorStop(0.5, `rgba(255, 100, 80, ${alpha * 0.7})`);
+        coreGradient.addColorStop(1, `rgba(255, 60, 40, ${alpha * 0.3})`);
+        
+        ctx.fillStyle = coreGradient;
+        ctx.beginPath();
+        ctx.arc(x, y, pupilSize * 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add streaky blur effect for motion (anime style)
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = alpha * 0.4;
+        
+        const streakLength = pupilSize * 1.5;
+        const streakGradient = ctx.createRadialGradient(x, y, 0, x, y, streakLength);
+        streakGradient.addColorStop(0, 'rgba(255, 150, 100, 0.8)');
+        streakGradient.addColorStop(0.6, 'rgba(255, 80, 60, 0.4)');
+        streakGradient.addColorStop(1, 'rgba(255, 60, 40, 0)');
+        
+        ctx.fillStyle = streakGradient;
+        ctx.beginPath();
+        ctx.arc(x, y, streakLength, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+    }
+    
     draw(ctx) {
         if (!isInView(this.pos.x, this.pos.y, CULL_MARGIN + this.size * 2)) return;
+        
+        // Draw trail first (behind the predator)
+        this.drawTrail(ctx);
         
         let leftPoints = [];
         let rightPoints = [];
@@ -687,9 +848,42 @@ export class PredatorFish {
             ctx.fill();
             
             if (this.state === 'ATTACKING') {
-                ctx.fillStyle = `rgba(255, 60, 60, ${params.predatorEyeAttackGlowAlpha})`;
+                // Pulsing glow effect
+                const pulsePhase = Math.sin(this.swimTimer * params.predatorEyeGlowPulseSpeed) * 0.5 + 0.5;
+                const glowIntensity = (0.6 + pulsePhase * 0.4) * params.predatorEyeGlowIntensity;
+                
+                // Outer glow halo (largest)
+                const outerGlowRadius = pupilSize * params.predatorEyeGlowOuterRadius * 1.5;
+                const outerGlowGradient = ctx.createRadialGradient(x, y, pupilSize * 0.5, x, y, outerGlowRadius);
+                outerGlowGradient.addColorStop(0, `rgba(255, 40, 40, ${glowIntensity * 0.4})`);
+                outerGlowGradient.addColorStop(0.5, `rgba(255, 60, 30, ${glowIntensity * 0.2})`);
+                outerGlowGradient.addColorStop(1, 'rgba(255, 80, 0, 0)');
+                ctx.fillStyle = outerGlowGradient;
                 ctx.beginPath();
-                ctx.arc(x + pupilSize * 0.1, y + pupilSize * 0.1, pupilSize * 0.4, 0, Math.PI * 2);
+                ctx.arc(x, y, outerGlowRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Inner glow ring
+                const innerGlowRadius = pupilSize * params.predatorEyeGlowOuterRadius;
+                const innerGlowGradient = ctx.createRadialGradient(x, y, pupilSize * 0.3, x, y, innerGlowRadius);
+                innerGlowGradient.addColorStop(0, `rgba(255, 50, 50, ${glowIntensity * 0.8})`);
+                innerGlowGradient.addColorStop(0.6, `rgba(255, 40, 30, ${glowIntensity * 0.5})`);
+                innerGlowGradient.addColorStop(1, 'rgba(255, 60, 0, 0)');
+                ctx.fillStyle = innerGlowGradient;
+                ctx.beginPath();
+                ctx.arc(x, y, innerGlowRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Core bright glow
+                ctx.fillStyle = `rgba(255, 60, 60, ${params.predatorEyeAttackGlowAlpha * glowIntensity})`;
+                ctx.beginPath();
+                ctx.arc(x + pupilSize * 0.1, y + pupilSize * 0.1, pupilSize * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Bright center point
+                ctx.fillStyle = `rgba(255, 200, 150, ${glowIntensity * 0.9})`;
+                ctx.beginPath();
+                ctx.arc(x, y, pupilSize * 0.25, 0, Math.PI * 2);
                 ctx.fill();
             } else {
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';

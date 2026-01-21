@@ -63,6 +63,35 @@ export const params = {
     grassSwaySpeed: 0.006,
     grassSwayAmount: 0.08,
     
+    // Turtle settings
+    turtleCount: 3,
+    turtleSizeMin: 12,
+    turtleSizeMax: 18,
+    turtleBaseSpeedMin: 0.5,
+    turtleBaseSpeedMax: 0.8,
+    turtleTurnForce: 0.02,
+    turtleColor: "#4a7c59",
+    turtlePatternColor: "#2d4a35",
+    turtleHeadColor: "#5a8a68",
+    turtleDetectionRange: 180,
+    turtleFleeForceMultiplier: 3.5,
+    turtleFoodSeekRange: 250,
+    turtleTamedDuration: 600,
+    
+    // Snail settings
+    snailCount: 2,
+    snailSizeMin: 8,
+    snailSizeMax: 12,
+    snailSpeedMin: 0.2,
+    snailSpeedMax: 0.4,
+    snailShellColor: "#8B7355",
+    snailBodyColor: "#C4A57B",
+    snailDetectionRange: 120,
+    snailRetractDuration: 180,
+    snailCrawlSpeed: 0.5,
+    snailSwimChance: 0.15,
+    snailSwimDuration: 300,
+    
     // === ADVANCED SETTINGS ===
     
     // Fish Physics Advanced
@@ -125,6 +154,18 @@ export const params = {
     frogDiveDuration: 20,
     frogJumpLegLength: 15,
     frogEyeSizeRatio: 0.4,
+    frogSwimSpeedMin: 1.0,
+    frogSwimSpeedMax: 2.0,
+    frogSwimForce: 0.03,
+    frogJumpRange: 200,
+    frogSwimChance: 0.15,
+    frogSwimIdleTime: 300,
+    frogSwimSeekRange: 300,
+    frogFloatChance: 0.2,
+    frogFloatDuration: 400,
+    frogFloatDriftSpeed: 0.3,
+    frogFloatBobSpeed: 0.02,
+    frogFloatBobAmount: 2,
     
     // Environment Advanced
     stoneDensityBase: 15000,
@@ -196,7 +237,20 @@ export const params = {
     predatorEyeSizeRatio: 2.0,
     predatorEyeIrisRatio: 0.6,
     predatorEyePupilRatio: 0.5,
-    predatorEyeAttackGlowAlpha: 0.85
+    predatorEyeAttackGlowAlpha: 0.85,
+    
+    // Predator trail settings (anime-style eye after-images)
+    predatorTrailMaxLength: 12,        // Maximum number of trail points
+    predatorTrailFadeTime: 0.5,        // Time in seconds for trail to fade
+    predatorTrailColor: "#ff4444",     // Trail color (red/orange) - not used for eye trails
+    predatorTrailWidth: 3,              // Base trail width - not used for eye trails
+    predatorTrailSpacing: 10,           // Distance between trail points
+    predatorTrailAlpha: 0.8,            // Maximum trail alpha
+    
+    // Enhanced eye glow
+    predatorEyeGlowOuterRadius: 1.8,    // Multiplier for outer glow radius
+    predatorEyeGlowPulseSpeed: 0.15,    // Speed of glow pulsing animation
+    predatorEyeGlowIntensity: 1.2       // Intensity multiplier for glow
 };
 
 // Render culling margin

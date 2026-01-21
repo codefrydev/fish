@@ -177,6 +177,7 @@
         <div id="perf-stats" style="font-family: monospace; font-size: 11px; color: #81c784; line-height: 1.5;">
             <div>Fish: <span id="stat-fish">0</span> | Ripples: <span id="stat-ripples">0</span></div>
             <div>Food: <span id="stat-food">0</span> | Frogs: <span id="stat-frogs">0</span></div>
+            <div>Turtles: <span id="stat-turtles">0</span></div>
         </div>
     </div>
 
@@ -268,6 +269,103 @@
         
         <div style="margin-top: 8px; font-family: monospace; font-size: 11px; color: #ff6b6b;">
             <div>Hunts: <span id="stat-hunts">0</span> | Kills: <span id="stat-kills">0</span></div>
+        </div>
+    </div>
+
+    <h3>Turtles</h3>
+    <div class="control-group">
+        <div class="control-label">Turtle Count <span id="val-turtleCount" class="val-display"></span></div>
+        <input type="range" id="inp-turtleCount" min="0" max="10" step="1">
+        
+        <div class="control-label">Size <span id="val-turtleSizeMin" class="val-display"></span>-<span id="val-turtleSizeMax" class="val-display"></span></div>
+        <div class="dual-range" data-min-id="inp-turtleSizeMin" data-max-id="inp-turtleSizeMax">
+            <div class="dual-range-track"></div>
+            <div class="dual-range-fill"></div>
+            <input type="range" id="inp-turtleSizeMin" min="8" max="30" step="1">
+            <input type="range" id="inp-turtleSizeMax" min="8" max="30" step="1">
+        </div>
+        
+        <div class="control-label">Swim Speed <span id="val-turtleBaseSpeedMin" class="val-display"></span>-<span id="val-turtleBaseSpeedMax" class="val-display"></span></div>
+        <div class="dual-range" data-min-id="inp-turtleBaseSpeedMin" data-max-id="inp-turtleBaseSpeedMax">
+            <div class="dual-range-track"></div>
+            <div class="dual-range-fill"></div>
+            <input type="range" id="inp-turtleBaseSpeedMin" min="0.2" max="2.0" step="0.1">
+            <input type="range" id="inp-turtleBaseSpeedMax" min="0.2" max="2.0" step="0.1">
+        </div>
+        
+        <div class="control-label">Turn Force <span id="val-turtleTurnForce" class="val-display"></span></div>
+        <input type="range" id="inp-turtleTurnForce" min="0.005" max="0.1" step="0.005">
+        
+        <div class="control-label">Detection Range <span id="val-turtleDetectionRange" class="val-display"></span></div>
+        <input type="range" id="inp-turtleDetectionRange" min="50" max="300" step="10">
+        
+        <div class="control-label">Flee Force <span id="val-turtleFleeForceMultiplier" class="val-display"></span></div>
+        <input type="range" id="inp-turtleFleeForceMultiplier" min="1.0" max="10.0" step="0.5">
+        
+        <div class="control-label">Food Seek Range <span id="val-turtleFoodSeekRange" class="val-display"></span></div>
+        <input type="range" id="inp-turtleFoodSeekRange" min="100" max="400" step="25">
+        
+        <div class="control-label">Tamed Duration <span id="val-turtleTamedDuration" class="val-display"></span></div>
+        <input type="range" id="inp-turtleTamedDuration" min="200" max="1200" step="50">
+        
+        <div class="control-label">Shell Color</div>
+        <input type="color" id="inp-turtleColor">
+        
+        <div class="control-label">Pattern Color</div>
+        <input type="color" id="inp-turtlePatternColor">
+        
+        <div class="control-label">Head/Limb Color</div>
+        <input type="color" id="inp-turtleHeadColor">
+        
+        <div style="margin-top: 8px; font-family: monospace; font-size: 11px; color: #5a8a68;">
+            <div>Turtles: <span id="stat-turtles">0</span></div>
+        </div>
+    </div>
+
+    <h3>Snails</h3>
+    <div class="control-group">
+        <div class="control-label">Snail Count <span id="val-snailCount" class="val-display"></span></div>
+        <input type="range" id="inp-snailCount" min="0" max="10" step="1">
+        
+        <div class="control-label">Size <span id="val-snailSizeMin" class="val-display"></span>-<span id="val-snailSizeMax" class="val-display"></span></div>
+        <div class="dual-range" data-min-id="inp-snailSizeMin" data-max-id="inp-snailSizeMax">
+            <div class="dual-range-track"></div>
+            <div class="dual-range-fill"></div>
+            <input type="range" id="inp-snailSizeMin" min="5" max="20" step="1">
+            <input type="range" id="inp-snailSizeMax" min="5" max="20" step="1">
+        </div>
+        
+        <div class="control-label">Speed <span id="val-snailSpeedMin" class="val-display"></span>-<span id="val-snailSpeedMax" class="val-display"></span></div>
+        <div class="dual-range" data-min-id="inp-snailSpeedMin" data-max-id="inp-snailSpeedMax">
+            <div class="dual-range-track"></div>
+            <div class="dual-range-fill"></div>
+            <input type="range" id="inp-snailSpeedMin" min="0.1" max="1.0" step="0.05">
+            <input type="range" id="inp-snailSpeedMax" min="0.1" max="1.0" step="0.05">
+        </div>
+        
+        <div class="control-label">Detection Range <span id="val-snailDetectionRange" class="val-display"></span></div>
+        <input type="range" id="inp-snailDetectionRange" min="50" max="250" step="10">
+        
+        <div class="control-label">Retract Duration <span id="val-snailRetractDuration" class="val-display"></span></div>
+        <input type="range" id="inp-snailRetractDuration" min="60" max="360" step="30">
+        
+        <div class="control-label">Crawl Speed <span id="val-snailCrawlSpeed" class="val-display"></span></div>
+        <input type="range" id="inp-snailCrawlSpeed" min="0.1" max="1.0" step="0.05">
+        
+        <div class="control-label">Swim Chance <span id="val-snailSwimChance" class="val-display"></span></div>
+        <input type="range" id="inp-snailSwimChance" min="0.0" max="0.5" step="0.05">
+        
+        <div class="control-label">Swim Duration <span id="val-snailSwimDuration" class="val-display"></span></div>
+        <input type="range" id="inp-snailSwimDuration" min="100" max="600" step="50">
+        
+        <div class="control-label">Shell Color</div>
+        <input type="color" id="inp-snailShellColor">
+        
+        <div class="control-label">Body Color</div>
+        <input type="color" id="inp-snailBodyColor">
+        
+        <div style="margin-top: 8px; font-family: monospace; font-size: 11px; color: #8B7355;">
+            <div>Snails: <span id="stat-snails">0</span></div>
         </div>
     </div>
 
@@ -460,6 +558,31 @@
             <input type="range" id="inp-predatorEyeAttackGlowAlpha" min="0" max="1.0" step="0.05">
         </div>
         
+        <!-- Predator Attack Effects -->
+        <h4 style="margin: 12px 0 6px 0; font-size: 11px; color: #ff4444; text-transform: uppercase; letter-spacing: 0.5px;">Attack Effects (Anime-Style Eye Trails)</h4>
+        <div class="control-group">
+            <div class="control-label">Eye Glow Outer Radius <span id="val-predatorEyeGlowOuterRadius" class="val-display"></span></div>
+            <input type="range" id="inp-predatorEyeGlowOuterRadius" min="1.0" max="3.0" step="0.1">
+            
+            <div class="control-label">Eye Glow Pulse Speed <span id="val-predatorEyeGlowPulseSpeed" class="val-display"></span></div>
+            <input type="range" id="inp-predatorEyeGlowPulseSpeed" min="0.05" max="0.5" step="0.01">
+            
+            <div class="control-label">Eye Glow Intensity <span id="val-predatorEyeGlowIntensity" class="val-display"></span></div>
+            <input type="range" id="inp-predatorEyeGlowIntensity" min="0.5" max="2.0" step="0.1">
+            
+            <div class="control-label">Trail Max Length <span id="val-predatorTrailMaxLength" class="val-display"></span></div>
+            <input type="range" id="inp-predatorTrailMaxLength" min="5" max="30" step="1">
+            
+            <div class="control-label">Trail Fade Time <span id="val-predatorTrailFadeTime" class="val-display"></span></div>
+            <input type="range" id="inp-predatorTrailFadeTime" min="0.1" max="2.0" step="0.1">
+            
+            <div class="control-label">Trail Spacing <span id="val-predatorTrailSpacing" class="val-display"></span></div>
+            <input type="range" id="inp-predatorTrailSpacing" min="3" max="20" step="1">
+            
+            <div class="control-label">Trail Alpha <span id="val-predatorTrailAlpha" class="val-display"></span></div>
+            <input type="range" id="inp-predatorTrailAlpha" min="0.2" max="1.0" step="0.05">
+        </div>
+        
         <!-- Lily Pad Advanced -->
         <h4 style="margin: 12px 0 6px 0; font-size: 11px; color: #4caf50; text-transform: uppercase; letter-spacing: 0.5px;">Lily Pads & Flowers</h4>
         <div class="control-group">
@@ -521,6 +644,39 @@
             
             <div class="control-label">Eye Size Ratio <span id="val-frogEyeSizeRatio" class="val-display"></span></div>
             <input type="range" id="inp-frogEyeSizeRatio" min="0.2" max="0.8" step="0.05">
+            
+            <div class="control-label">Jump Range <span id="val-frogJumpRange" class="val-display"></span></div>
+            <input type="range" id="inp-frogJumpRange" min="50" max="400" step="10">
+            
+            <div class="control-label">Swim Speed Min <span id="val-frogSwimSpeedMin" class="val-display"></span></div>
+            <input type="range" id="inp-frogSwimSpeedMin" min="0.5" max="3.0" step="0.1">
+            
+            <div class="control-label">Swim Speed Max <span id="val-frogSwimSpeedMax" class="val-display"></span></div>
+            <input type="range" id="inp-frogSwimSpeedMax" min="0.5" max="4.0" step="0.1">
+            
+            <div class="control-label">Swim Force <span id="val-frogSwimForce" class="val-display"></span></div>
+            <input type="range" id="inp-frogSwimForce" min="0.01" max="0.1" step="0.01">
+            
+            <div class="control-label">Swim Chance <span id="val-frogSwimChance" class="val-display"></span></div>
+            <input type="range" id="inp-frogSwimChance" min="0" max="0.5" step="0.05">
+            
+            <div class="control-label">Swim Seek Range <span id="val-frogSwimSeekRange" class="val-display"></span></div>
+            <input type="range" id="inp-frogSwimSeekRange" min="100" max="500" step="25">
+            
+            <div class="control-label">Float Chance <span id="val-frogFloatChance" class="val-display"></span></div>
+            <input type="range" id="inp-frogFloatChance" min="0" max="0.5" step="0.05">
+            
+            <div class="control-label">Float Duration <span id="val-frogFloatDuration" class="val-display"></span></div>
+            <input type="range" id="inp-frogFloatDuration" min="100" max="800" step="50">
+            
+            <div class="control-label">Float Drift Speed <span id="val-frogFloatDriftSpeed" class="val-display"></span></div>
+            <input type="range" id="inp-frogFloatDriftSpeed" min="0.1" max="1.0" step="0.1">
+            
+            <div class="control-label">Float Bob Speed <span id="val-frogFloatBobSpeed" class="val-display"></span></div>
+            <input type="range" id="inp-frogFloatBobSpeed" min="0.01" max="0.1" step="0.01">
+            
+            <div class="control-label">Float Bob Amount <span id="val-frogFloatBobAmount" class="val-display"></span></div>
+            <input type="range" id="inp-frogFloatBobAmount" min="0" max="5" step="0.5">
         </div>
         
         <!-- Environment Advanced -->

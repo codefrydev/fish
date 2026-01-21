@@ -17,6 +17,8 @@ let lastShadowUpdate = 0;
 // Entity references (set via setEntities)
 let entities = null;
 let birthCountRef = { count: 0 };
+let mousePosRef = { x: 0, y: 0 };
+let mouseActiveRef = false;
 
 // Initialize canvases
 export function initCanvases() {
@@ -36,9 +38,11 @@ export function initCanvases() {
 }
 
 // Set entity references
-export function setEntities(entitiesRef, birthCountReference) {
+export function setEntities(entitiesRef, birthCountReference, mousePosition, mouseIsActive) {
     entities = entitiesRef;
     birthCountRef = birthCountReference;
+    if (mousePosition) mousePosRef = mousePosition;
+    if (mouseIsActive !== undefined) mouseActiveRef = mouseIsActive;
 }
 
 // Get canvas context
@@ -183,7 +187,7 @@ export function animate(currentTime, addRippleFn) {
         return;
     }
     
-    const { fish, predators, pads, frogs, grass } = entities;
+    const { fish, predators, turtles, snails, pads, frogs, grass } = entities;
     
     // Frame rate limiting
     if (!performanceManager.shouldRender(currentTime, params.targetFPS)) {
@@ -261,6 +265,20 @@ export function animate(currentTime, addRippleFn) {
                 p.drawShadow(shadowCtx);
             }
         });
+        // Turtle shadows
+        turtles.forEach(t => {
+            if (isInView(t.pos.x, t.pos.y, CULL_MARGIN + 50)) {
+                t.drawShadow(shadowCtx);
+            }
+        });
+        // Snail shadows
+        if (snails) {
+            snails.forEach(s => {
+                if (isInView(s.pos.x, s.pos.y, CULL_MARGIN + 50)) {
+                    s.drawShadow(shadowCtx);
+                }
+            });
+        }
     }
     
     // Composite shadow layer
@@ -287,6 +305,21 @@ export function animate(currentTime, addRippleFn) {
         p.update(fish, dt);
         p.draw(ctx);
     });
+    
+    // Update and draw turtles (also under lily pads)
+    const followTarget = mouseActiveRef ? mousePosRef : null;
+    turtles.forEach(t => {
+        t.update(activeFoods, followTarget, dt);
+        t.draw(ctx);
+    });
+    
+    // Update and draw snails (also under lily pads)
+    if (snails) {
+        snails.forEach(s => {
+            s.update(pads, entities.stones, dt);
+            s.draw(ctx);
+        });
+    }
 
     // Draw lily pads on top of fish
     pads.forEach(pad => pad.draw(ctx));
@@ -395,7 +428,7 @@ function handleReproduction(dt, w, h) {
 // Update stats display
 function updateStatsDisplay() {
     if (!entities) return;
-    const { fish, predators, frogs } = entities;
+    const { fish, predators, turtles, snails, frogs } = entities;
     const actualFPS = performanceManager.getActualFPS();
     
     // Update FPS display
@@ -407,12 +440,16 @@ function updateStatsDisplay() {
     const statRipples = document.getElementById('stat-ripples');
     const statFood = document.getElementById('stat-food');
     const statFrogs = document.getElementById('stat-frogs');
+    const statTurtles = document.getElementById('stat-turtles');
+    const statSnails = document.getElementById('stat-snails');
     const statHunts = document.getElementById('stat-hunts');
     const statKills = document.getElementById('stat-kills');
     if (statFish) statFish.textContent = fish.length;
     if (statRipples) statRipples.textContent = ripplePool.getActiveCount();
     if (statFood) statFood.textContent = foodPool.getActiveCount();
     if (statFrogs) statFrogs.textContent = frogs.length;
+    if (statTurtles) statTurtles.textContent = turtles.length;
+    if (statSnails && snails) statSnails.textContent = snails.length;
     
     // Predator stats
     let totalHunts = 0, totalKills = 0;
