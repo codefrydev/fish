@@ -2,7 +2,7 @@
 
 import { Vector } from '../utils/Vector.js';
 import { params, CULL_MARGIN } from '../config.js';
-import { rand, isInView, width, height } from '../utils/helpers.js';
+import { rand, isInView, width, height, lerp } from '../utils/helpers.js';
 import { fishGrid, foodGrid, predatorGrid } from '../utils/SpatialGrid.js';
 import { ripplePool, splashPool } from '../systems/ObjectPool.js';
 
@@ -59,10 +59,159 @@ function rgbaFromHex(hex, alpha) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+// Helper to convert Hex to RGBA for blending spots
+function hexToRgba(hex, alpha) {
+    const h = hex.startsWith('#') ? hex.slice(1) : hex;
+    const bigint = parseInt(h, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Math constants
+const PI = Math.PI;
+const TWO_PI = Math.PI * 2;
+const HALF_PI = Math.PI / 2;
+
+// Angle utility functions
+function simplifyAngle(angle) {
+    while (angle >= TWO_PI) angle -= TWO_PI;
+    while (angle < 0) angle += TWO_PI;
+    return angle;
+}
+
+function relativeAngleDiff(angle, anchor) {
+    angle = simplifyAngle(angle + PI - anchor);
+    anchor = PI;
+    return anchor - angle;
+}
+
+function constrainAngle(angle, anchor, constraint) {
+    if (Math.abs(relativeAngleDiff(angle, anchor)) <= constraint) return simplifyAngle(angle);
+    if (relativeAngleDiff(angle, anchor) > constraint) return simplifyAngle(anchor - constraint);
+    return simplifyAngle(anchor + constraint);
+}
+
+// Get the shortest angle difference between two angles (-PI to PI)
+function angleDifference(target, current) {
+    let diff = target - current;
+    // Normalize to -PI to PI range
+    while (diff > PI) diff -= TWO_PI;
+    while (diff < -PI) diff += TWO_PI;
+    return diff;
+}
+
+/**
+ * Chain class for smooth spine animation with angle constraints
+ */
+class Chain {
+    constructor(origin, jointCount, linkSize, angleConstraint = TWO_PI, trailAngle = 0) {
+        this.linkSize = linkSize;
+        this.angleConstraint = angleConstraint;
+        this.joints = [];
+        this.angles = [];
+        
+        this.joints.push(origin.copy());
+        this.angles.push(simplifyAngle(trailAngle + PI));
+
+        let offset = Vector.fromAngle(trailAngle);
+        offset.mult(linkSize);
+
+        for (let i = 1; i < jointCount; i++) {
+            const prev = this.joints[i - 1];
+            const newPos = Vector.add(prev, offset);
+            this.joints.push(newPos);
+            this.angles.push(simplifyAngle(trailAngle + PI));
+        }
+    }
+
+    resolve(pos) {
+        this.joints[0] = pos.copy();
+        for (let i = 1; i < this.joints.length; i++) {
+            const diff = Vector.sub(this.joints[i - 1], this.joints[i]);
+            const curAngle = Math.atan2(diff.y, diff.x);
+            this.angles[i] = constrainAngle(curAngle, this.angles[i - 1], this.angleConstraint);
+            const offset = Vector.fromAngle(this.angles[i]);
+            offset.mult(this.linkSize);
+            this.joints[i] = Vector.sub(this.joints[i - 1], offset);
+        }
+    }
+}
+
+// Shape rendering helpers (Processing-style)
+let shapeVertices = [];
+
+function beginShape() {
+    shapeVertices = [];
+}
+
+function vertex(x, y) {
+    shapeVertices.push({ x, y, type: 'vertex' });
+}
+
+function curveVertex(x, y) {
+    shapeVertices.push({ x, y, type: 'curve' });
+}
+
+function bezierVertex(cx1, cy1, cx2, cy2, x, y) {
+    shapeVertices.push({ cx1, cy1, cx2, cy2, x, y, type: 'bezier' });
+}
+
+function endShape(ctx, fillStyle, patternCallback) {
+    if (shapeVertices.length === 0) return;
+    ctx.beginPath();
+    
+    let isSpline = shapeVertices.some(v => v.type === 'curve');
+
+    if (isSpline && shapeVertices.length >= 4) {
+        ctx.moveTo(shapeVertices[1].x, shapeVertices[1].y);
+        for (let i = 1; i < shapeVertices.length - 2; i++) {
+            let p0 = shapeVertices[i - 1];
+            let p1 = shapeVertices[i];
+            let p2 = shapeVertices[i + 1];
+            let p3 = shapeVertices[i + 2];
+            
+            let cp1x = p1.x + (p2.x - p0.x) / 6;
+            let cp1y = p1.y + (p2.y - p0.y) / 6;
+            let cp2x = p2.x - (p3.x - p1.x) / 6;
+            let cp2y = p2.y - (p3.y - p1.y) / 6;
+            
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        }
+    } else {
+        ctx.moveTo(shapeVertices[0].x, shapeVertices[0].y);
+        for (let i = 1; i < shapeVertices.length; i++) {
+            let v = shapeVertices[i];
+            if (v.type === 'bezier') {
+                ctx.bezierCurveTo(v.cx1, v.cy1, v.cx2, v.cy2, v.x, v.y);
+            } else {
+                ctx.lineTo(v.x, v.y);
+            }
+        }
+    }
+    
+    ctx.closePath();
+    
+    // Main Fill
+    if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+    }
+
+    // Render Patterns (Spots) clipped to the fish body
+    if (patternCallback) {
+        ctx.save();
+        ctx.clip(); 
+        patternCallback();
+        ctx.restore();
+    }
+}
+
 export class Koi {
     constructor(x, y) {
         this.pos = new Vector(x, y);
-        this.vel = new Vector(rand(-1, 1), rand(-1, 1));
+        this.vel = Vector.fromAngle(rand(0, TWO_PI));
         this.acc = new Vector(0, 0);
         
         this.baseSpeed = rand(params.fishBaseSpeedMin, params.fishBaseSpeedMax);
@@ -70,40 +219,37 @@ export class Koi {
         
         this.maxForce = params.turnForce; 
         
-        this.size = rand(params.sizeMin, params.sizeMax); 
+        // Scale factor (0.6-0.9 range like example, but respect config)
+        const baseScale = rand(0.6, 0.9);
+        this.scale = baseScale * (params.sizeMin + params.sizeMax) / 20; // Scale by average size
+        this.size = this.scale * 10; // Keep size for compatibility with existing code
         
         this.swimTimer = Math.random() * params.fishInitialSwimTimer;
         this.birthTimer = rand(0, params.fishInitialBirthCooldown);
         
-        this.spine = [];
-        this.spineLength = params.spineCount; 
+        // Chain-based spine system
+        const spineCount = params.spineCount || 12;
+        const linkSize = 16 * this.scale;
+        const trailAngle = this.vel.heading ? this.vel.heading() + PI : Math.atan2(this.vel.y, this.vel.x) + PI;
+        this.spine = new Chain(this.pos, spineCount, linkSize, PI / 3, trailAngle); // Looser constraint (PI/3 instead of PI/6)
+        this.spineLength = spineCount;
         
-        this.initSpine(x, y);
+        // Smoothed velocity for angle calculation (reduces jitter)
+        this.smoothedVel = new Vector(this.vel.x, this.vel.y);
         
-        const types = ['kohaku', 'showa', 'gold', 'tancho', 'utsuri'];
-        this.type = types[Math.floor(Math.random() * types.length)];
+        // Track current head angle to prevent sudden 360 rotations
+        this.currentHeadAngle = simplifyAngle(this.vel.heading());
         
-        this.baseColor = '#f0f0f0'; 
-        this.spots = [];
-
-        if (this.type === 'kohaku') { 
-            this.baseColor = '#fdfdfd';
-            this.generatePatches('#d62828', 'saddle'); 
-        } else if (this.type === 'gold') { 
-            this.baseColor = '#f4a261';
-            this.generatePatches('#e76f51', 'large_wash'); 
-        } else if (this.type === 'showa') { 
-            this.baseColor = '#1a1a1a'; 
-            this.generatePatches('#d62828', 'saddle'); 
-            this.generatePatches('#fdfdfd', 'saddle_small'); 
-        } else if (this.type === 'tancho') { 
-            this.baseColor = '#fdfdfd';
-            this.spots.push({ color: '#d62828', t: 0.05, offset: 0, radius: this.size * 0.6 });
-        } else if (this.type === 'utsuri') { 
-            this.baseColor = '#0f0f0f';
-            this.generatePatches('#f4d35e', 'wrapping_bands');
-        }
-
+        // Base widths for body shape (scaled by fish size)
+        this.baseWidths = [68, 81, 84, 83, 77, 64, 51, 38, 32, 19];
+        
+        // Swim phase for wiggle animation
+        this.swimPhase = rand(0, TWO_PI);
+        this.noiseOffset = rand(0, 1000);
+        
+        // Pattern setup
+        this.setupPattern();
+        
         this.finsAngle = 0;
         
         // Jump state management
@@ -116,72 +262,59 @@ export class Koi {
         this.isExcited = false; // Track if fish is excited (near food or just ate)
     }
 
-    initSpine(x, y) {
-        this.spine = [];
-        const dist = this.size * params.distConstraint;
-        for (let i = 0; i < this.spineLength; i++) {
-            this.spine.push({
-                pos: new Vector(x - i * dist, y), 
-                size: this.calculateThickness(i)
+    setupPattern() {
+        this.spots = []; // Clear previous spots
+        let pType = params.pattern || 'Random';
+
+        if (pType === 'Random') {
+            const rnd = Math.random();
+            if (rnd < 0.3) pType = 'Kohaku';
+            else if (rnd < 0.5) pType = 'Sanke';
+            else if (rnd < 0.7) pType = 'Showa';
+            else if (rnd < 0.8) pType = 'Utsuri';
+            else if (rnd < 0.9) pType = 'Ogon';
+            else pType = 'Orenji';
+        }
+
+        // Default Base Colors
+        this.baseColor = '#f0f0f0'; // White base default
+        
+        if (pType === 'Kohaku') {
+            this.baseColor = '#f2f2f2';
+            this.generateSpots('#FF4500', 3, 5); // Red/Orange
+        } else if (pType === 'Sanke') {
+            this.baseColor = '#f5f5f5';
+            this.generateSpots('#FF3300', 2, 4); // Red
+            this.generateSpots('#222222', 1, 3, 0.6); // Small Black
+        } else if (pType === 'Showa') {
+            this.baseColor = '#222222'; // Black base
+            this.generateSpots('#FF3300', 3, 5); // Red
+            this.generateSpots('#FFFFFF', 2, 4); // White
+        } else if (pType === 'Utsuri') {
+            this.baseColor = '#111111'; // Black base
+            this.generateSpots('#FFD700', 3, 6); // Yellow/Gold
+        } else if (pType === 'Ogon') {
+            this.baseColor = '#FFD700'; // Gold
+        } else if (pType === 'Orenji') {
+            this.baseColor = '#FF8C00'; // Orange
+        }
+    }
+
+    generateSpots(color, minCount, maxCount, sizeMult = 1.0) {
+        const count = Math.floor(rand(minCount, maxCount));
+        for(let i=0; i<count; i++) {
+            this.spots.push({
+                segment: rand(1, 9), 
+                offsetY: rand(-0.5, 0.5), 
+                size: rand(0.8, 1.5) * sizeMult, 
+                color: color
             });
         }
     }
 
-    calculateThickness(i) {
-        const t = i / (this.spineLength - 1);
-        let thickness = 1.0;
-        
-        if (t < 0.25) {
-            thickness = params.fishThicknessHead + (t / 0.25) * params.fishThicknessNeck; 
-        } else {
-            let bodyT = (t - 0.25) / 0.75;
-            thickness = params.fishThicknessTaper * (1 - Math.pow(bodyT, params.tailTaper) * params.fishThicknessPow);
-        }
-        thickness = Math.max(params.fishThicknessMin, thickness);
-        
-        return this.size * thickness * params.fatness;
-    }
-
-    generatePatches(color, style) {
-        if (style === 'saddle') {
-            let count = Math.floor(rand(2, 3));
-            for(let i=0; i<count; i++) {
-                let centerT = rand(0.2, 0.8);
-                let clusterSize = Math.floor(rand(2, 4)); 
-                for(let j=0; j<clusterSize; j++) {
-                    this.spots.push({
-                        color: color,
-                        t: centerT + rand(-0.08, 0.08), 
-                        offset: rand(-this.size*0.4, this.size*0.4), 
-                        radius: rand(this.size * 0.6, this.size * 0.9) 
-                    });
-                }
-            }
-        } else if (style === 'saddle_small') {
-             let count = Math.floor(rand(2, 4));
-             for(let i=0; i<count; i++) {
-                 let centerT = rand(0.1, 0.9);
-                 this.spots.push({
-                     color: color,
-                     t: centerT,
-                     offset: rand(-3, 3),
-                     radius: rand(this.size * 0.4, this.size * 0.7)
-                 });
-             }
-        } else if (style === 'wrapping_bands') {
-            let count = Math.floor(rand(2, 3));
-            for(let i=0; i<count; i++) {
-                let centerT = rand(0.1, 0.9);
-                this.spots.push({ color: color, t: centerT, offset: 0, radius: this.size * 0.95 });
-            }
-        } else if (style === 'large_wash') {
-             this.spots.push({
-                color: color,
-                t: 0.4,
-                offset: 0,
-                radius: this.size * 1.5
-            });
-        }
+    getDynamicWidth(i) {
+        const baseW = this.baseWidths[i] !== undefined ? this.baseWidths[i] : 10;
+        return baseW * this.scale * 0.6 * (params.bodyWidth || 0.4);
     }
 
     seek(target) {
@@ -204,44 +337,29 @@ export class Koi {
     }
     
     drawShadow(shadowCtx) {
-        let leftPoints = [];
-        let rightPoints = [];
+        const j = this.spine.joints;
+        const a = this.spine.angles;
+        
+        const getP = (i, angOff, lenOff) => {
+            const w = this.getDynamicWidth(i);
+            const wiggleMag = (i * 2.0 * this.scale); 
+            const wiggle = Math.sin(this.swimPhase - i * 0.5) * wiggleMag;
+            
+            const px = Math.cos(a[i] + HALF_PI) * wiggle;
+            const py = Math.sin(a[i] + HALF_PI) * wiggle;
+            
+            const baseX = j[i].x + px;
+            const baseY = j[i].y + py;
 
-        let head = this.spine[0];
-        let neck = this.spine[1];
-        let headAngle = Math.atan2(head.pos.y - neck.pos.y, head.pos.x - neck.pos.x);
-
-        for (let i = 0; i < this.spineLength; i++) {
-            let s = this.spine[i];
-            
-            let a;
-            if (i === 0) {
-                a = headAngle;
-            } else if (i === this.spineLength - 1) {
-                let prev = this.spine[i-1];
-                a = Math.atan2(s.pos.y - prev.pos.y, s.pos.x - prev.pos.x);
-            } else {
-                let next = this.spine[i+1];
-                let prev = this.spine[i-1];
-                a = Math.atan2(next.pos.y - prev.pos.y, next.pos.x - prev.pos.x);
-            }
-            
-            let px = Math.cos(a + Math.PI/2);
-            let py = Math.sin(a + Math.PI/2);
-            
-            leftPoints.push({x: s.pos.x + px * s.size, y: s.pos.y + py * s.size});
-            rightPoints.push({x: s.pos.x - px * s.size, y: s.pos.y - py * s.size});
-        }
+            return {
+                x: baseX + Math.cos(a[i] + angOff) * (w + lenOff),
+                y: baseY + Math.sin(a[i] + angOff) * (w + lenOff)
+            };
+        };
         
         shadowCtx.save();
         shadowCtx.translate(params.shadowOffsetX, params.shadowOffsetY); 
-        shadowCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        
-        this.drawBodyPathOnContext(shadowCtx, leftPoints, rightPoints, head, headAngle);
-        shadowCtx.fill();
-        this.drawFinsOnContext(shadowCtx, head, headAngle, false, true); 
-        this.drawFinsOnContext(shadowCtx, head, headAngle, true, true);  
-        this.drawDorsalFinOnContext(shadowCtx, true);
+        this.drawBodyAndFins(shadowCtx, 'rgba(0,0,0,0.3)', true, getP, j, a);
         shadowCtx.restore();
     }
 
@@ -488,29 +606,22 @@ export class Koi {
                 }
             }
             
-            // Update spine for jumping fish (less wavy during jump)
-            this.spine[0].pos = new Vector(this.pos.x, this.pos.y);
-            for (let i = 1; i < this.spineLength; i++) {
-                let prev = this.spine[i - 1].pos;
-                let curr = this.spine[i].pos;
-                
-                let dx = curr.x - prev.x;
-                let dy = curr.y - prev.y;
-                let angle = Math.atan2(dy, dx);
-                
-                // Reduced wave during jump
-                let waveAmt = Math.min(params.waveAmpMax * 0.3, i * params.waveAmpGain * 0.3);
-                let wave = Math.sin(this.swimTimer - i * params.fishWavePhaseOffset) * waveAmt;
-                angle += wave;
-                
-                const segDist = this.size * params.distConstraint;
-                curr.x = prev.x + Math.cos(angle) * segDist;
-                curr.y = prev.y + Math.sin(angle) * segDist;
-                curr.size = this.calculateThickness(i);
+            // Update Chain for jumping fish - use jump velocity directly with shortest path
+            if (this.jumpVelocity.mag() > 0.01) {
+                const targetAngle = Math.atan2(this.jumpVelocity.y, this.jumpVelocity.x);
+                const angleDiff = angleDifference(targetAngle, this.currentHeadAngle);
+                this.currentHeadAngle = simplifyAngle(this.currentHeadAngle + angleDiff * 0.2);
+                this.spine.angles[0] = this.currentHeadAngle;
             }
+            this.spine.resolve(this.pos);
+            
+            // Update smoothed velocity during jump
+            this.smoothedVel.x = this.jumpVelocity.x;
+            this.smoothedVel.y = this.jumpVelocity.y;
             
             // Continue swim timer for animation
             this.swimTimer += (params.waveSpeedBase + (this.jumpVelocity.mag() * params.waveSpeedMult)) * scale;
+            this.swimPhase += (0.15 + (this.jumpVelocity.mag() * 0.05)) * (params.wiggle || 0.2) * scale * 0.3; // Reduced wiggle during jump
             this.finsAngle = this.swimTimer;
             
             return; // Skip normal physics update during jump
@@ -529,165 +640,206 @@ export class Koi {
         
         let speed = this.vel.mag();
         this.swimTimer += (params.waveSpeedBase + (speed * params.waveSpeedMult)) * scale;
-
-        this.spine[0].pos = new Vector(this.pos.x, this.pos.y);
         
-        for (let i = 1; i < this.spineLength; i++) {
-            let prev = this.spine[i - 1].pos;
-            let curr = this.spine[i].pos;
-            
-            let dx = curr.x - prev.x;
-            let dy = curr.y - prev.y;
-            
-            let angle = Math.atan2(dy, dx);
-            
-            let waveAmt = Math.min(params.waveAmpMax, i * params.waveAmpGain);
-            let wave = Math.sin(this.swimTimer - i * params.fishWavePhaseOffset) * waveAmt;
-            
-            angle += wave;
-            
-            const segDist = this.size * params.distConstraint; 
-            
-            let tx = prev.x + Math.cos(angle) * segDist;
-            let ty = prev.y + Math.sin(angle) * segDist;
-            
-            curr.x = tx;
-            curr.y = ty;
-            
-            curr.size = this.calculateThickness(i);
+        // Smooth velocity for angle calculation to reduce jitter
+        const smoothFactor = 0.3; // How much to blend (0.3 = 30% new, 70% old)
+        this.smoothedVel.x = this.smoothedVel.x * (1 - smoothFactor) + this.vel.x * smoothFactor;
+        this.smoothedVel.y = this.smoothedVel.y * (1 - smoothFactor) + this.vel.y * smoothFactor;
+        
+        // Update Chain-based spine - use smoothed velocity heading with shortest path
+        const smoothedSpeed = this.smoothedVel.mag();
+        if (smoothedSpeed > 0.01) {
+            const targetAngle = this.smoothedVel.heading();
+            // Use shortest path to prevent 360 degree rotations
+            const angleDiff = angleDifference(targetAngle, this.currentHeadAngle);
+            // Smoothly transition (0.2 is the smoothing factor)
+            this.currentHeadAngle = simplifyAngle(this.currentHeadAngle + angleDiff * 0.2);
+            this.spine.angles[0] = this.currentHeadAngle;
         }
+        this.spine.resolve(this.pos);
+        
+        // Update swim phase for wiggle animation
+        this.swimPhase += (0.15 + (speed * 0.05)) * (params.wiggle || 0.2) * scale;
         
         this.finsAngle = this.swimTimer;
     }
 
-    draw(isShadow) {
-        const ctx = mainCtx;
-        if (!ctx) return;
+    display(ctx) {
+        const j = this.spine.joints;
+        const a = this.spine.angles;
         
-        let leftPoints = [];
-        let rightPoints = [];
-
-        let head = this.spine[0];
-        let neck = this.spine[1];
-        let headAngle = Math.atan2(head.pos.y - neck.pos.y, head.pos.x - neck.pos.x);
-
-        for (let i = 0; i < this.spineLength; i++) {
-            let s = this.spine[i];
+        const getP = (i, angOff, lenOff) => {
+            const w = this.getDynamicWidth(i);
+            const wiggleMag = (i * 2.0 * this.scale); 
+            const wiggle = Math.sin(this.swimPhase - i * 0.5) * wiggleMag;
             
-            let a;
-            if (i === 0) {
-                a = headAngle;
-            } else if (i === this.spineLength - 1) {
-                let prev = this.spine[i-1];
-                a = Math.atan2(s.pos.y - prev.pos.y, s.pos.x - prev.pos.x);
-            } else {
-                let next = this.spine[i+1];
-                let prev = this.spine[i-1];
-                a = Math.atan2(next.pos.y - prev.pos.y, next.pos.x - prev.pos.x);
-            }
+            const px = Math.cos(a[i] + HALF_PI) * wiggle;
+            const py = Math.sin(a[i] + HALF_PI) * wiggle;
             
-            let px = Math.cos(a + Math.PI/2);
-            let py = Math.sin(a + Math.PI/2);
-            
-            leftPoints.push({x: s.pos.x + px * s.size, y: s.pos.y + py * s.size});
-            rightPoints.push({x: s.pos.x - px * s.size, y: s.pos.y - py * s.size});
-        }
+            const baseX = j[i].x + px;
+            const baseY = j[i].y + py;
 
+            return {
+                x: baseX + Math.cos(a[i] + angOff) * (w + lenOff),
+                y: baseY + Math.sin(a[i] + angOff) * (w + lenOff)
+            };
+        };
+
+        // Shadow
+        ctx.save();
+        ctx.translate(20, 20);
+        this.drawBodyAndFins(ctx, 'rgba(0,0,0,0.2)', true, getP, j, a);
+        ctx.restore();
+
+        // Fish
+        this.drawBodyAndFins(ctx, this.baseColor, false, getP, j, a);
+    }
+
+    draw(isShadow) {
         // Shadows are now handled separately via drawShadow method
         if (isShadow) return;
-
-        this.drawFinsOnContext(ctx, head, headAngle, false, false);
-
-        ctx.save();
-        this.drawBodyPathOnContext(ctx, leftPoints, rightPoints, head, headAngle);
-        let maxRadius = 0;
-        for (const s of this.spine) {
-            if (s.size > maxRadius) maxRadius = s.size;
-        }
-        const midIndex = Math.floor(this.spineLength * 0.4);
-        const midPoint = this.spine[midIndex].pos;
-        const perpAngle = headAngle + Math.PI / 2;
-        const gradRadius = maxRadius * 1.25;
-        const gx0 = midPoint.x + Math.cos(perpAngle) * gradRadius;
-        const gy0 = midPoint.y + Math.sin(perpAngle) * gradRadius;
-        const gx1 = midPoint.x - Math.cos(perpAngle) * gradRadius;
-        const gy1 = midPoint.y - Math.sin(perpAngle) * gradRadius;
-        
-        const bodyGradient = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
-        const bodyDark = params.fishBodyShadeDark;
-        const bodyLight = params.fishBodyShadeLight;
-        bodyGradient.addColorStop(0, adjustColor(this.baseColor, -bodyDark));
-        bodyGradient.addColorStop(0.45, adjustColor(this.baseColor, bodyLight * 0.5));
-        bodyGradient.addColorStop(0.55, adjustColor(this.baseColor, bodyLight));
-        bodyGradient.addColorStop(1, adjustColor(this.baseColor, -bodyDark * 0.75));
-        ctx.fillStyle = bodyGradient;
-        ctx.fill();
-        
-        ctx.fillStyle = rgbaFromHex(this.baseColor, params.fishBodySolidAlpha);
-        ctx.fill();
-        
-        ctx.clip(); 
-        
-        for(let spot of this.spots) {
-            let idx = Math.floor(spot.t * (this.spineLength-1));
-            idx = Math.max(0, Math.min(idx, this.spineLength-1));
-            let s = this.spine[idx];
-            const spotX = s.pos.x + spot.offset;
-            const spotY = s.pos.y + spot.offset;
-            const spotGradient = ctx.createRadialGradient(
-                spotX, spotY, 0,
-                spotX, spotY, spot.radius
-            );
-            spotGradient.addColorStop(0, adjustColor(spot.color, 0.2));
-            spotGradient.addColorStop(0.55, spot.color);
-            spotGradient.addColorStop(1, rgbaFromHex(spot.color, params.fishPatternEdgeAlpha));
-            ctx.beginPath();
-            ctx.arc(spotX, spotY, spot.radius, 0, Math.PI*2);
-            ctx.fillStyle = spotGradient;
-            ctx.fill();
-        }
-
-        const lightDirX = 0.4;
-        const lightDirY = -0.9;
-        const lightLen = Math.hypot(lightDirX, lightDirY) || 1;
-        const lx = lightDirX / lightLen;
-        const ly = lightDirY / lightLen;
-        const highlightOffset = this.size * 0.18;
-        
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        for (let i = 0; i < this.spineLength - 1; i++) {
-            const s = this.spine[i];
-            const hx = s.pos.x + lx * highlightOffset * (s.size / maxRadius);
-            const hy = s.pos.y + ly * highlightOffset * (s.size / maxRadius);
-            if (i === 0) ctx.moveTo(hx, hy);
-            else ctx.lineTo(hx, hy);
-        }
-        ctx.strokeStyle = `rgba(255, 255, 255, ${params.fishSpecularOuterAlpha})`;
-        ctx.lineWidth = this.size * params.fishSpecularWidth;
-        ctx.stroke();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${params.fishSpecularInnerAlpha})`;
-        ctx.lineWidth = this.size * params.fishSpecularInnerWidth;
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.restore(); 
-
-        ctx.save();
-        this.drawBodyPathOnContext(ctx, leftPoints, rightPoints, head, headAngle);
-        ctx.strokeStyle = rgbaFromHex(adjustColor(this.baseColor, -params.fishOutlineDarken), params.fishOutlineAlpha);
-        ctx.lineWidth = Math.max(1, this.size * params.fishOutlineWidth);
-        ctx.stroke();
-        ctx.restore();
-
-        this.drawDorsalFinOnContext(ctx, false);
-        this.drawFinsOnContext(ctx, head, headAngle, true, false);
-        this.drawEyes(head, headAngle);
+        this.display(mainCtx);
     }
     
+    drawBodyAndFins(ctx, color, isShadow, getP, j, a) {
+        // FINS
+        const drawSingleFin = (idx, angleOffset, rot, len, wid) => {
+             const wiggleMag = (idx * 2.0 * this.scale);
+             const wiggle = Math.sin(this.swimPhase - idx * 0.5) * wiggleMag;
+             const px = Math.cos(a[idx] + HALF_PI) * wiggle;
+             const py = Math.sin(a[idx] + HALF_PI) * wiggle;
+             const w = this.getDynamicWidth(idx) * 0.8;
+             const bx = j[idx].x + px + Math.cos(a[idx] + angleOffset) * w;
+             const by = j[idx].y + py + Math.sin(a[idx] + angleOffset) * w;
+
+             ctx.save();
+             ctx.translate(bx, by);
+             ctx.rotate(rot);
+             ctx.beginPath();
+             ctx.ellipse(0, 0, len, wid, 0, 0, TWO_PI);
+             ctx.fillStyle = isShadow ? 'rgba(0,0,0,0)' : 'rgba(255, 255, 255, 0.4)';
+             ctx.fill();
+             ctx.restore();
+        }
+
+        drawSingleFin(3, PI/3, a[2] - PI/4, 40 * this.scale, 16 * this.scale);
+        drawSingleFin(3, -PI/3, a[2] + PI/4, 40 * this.scale, 16 * this.scale);
+        drawSingleFin(7, PI/2, a[6] - PI/4, 24 * this.scale, 8 * this.scale);
+        drawSingleFin(7, -PI/2, a[6] + PI/4, 24 * this.scale, 8 * this.scale);
+
+        // BODY CONSTRUCTION
+        // 1. Build shape array
+        beginShape();
+        for (let i = 8; i < 12; i++) { // Tail Right
+           let w = (i - 8) * (i - 8) * 2.5 * this.scale * (params.bodyWidth || 0.4);
+           let p = getP(i, -PI/2, w); 
+           curveVertex(p.x, p.y);
+        }
+        for (let i = 11; i >= 8; i--) { // Tail Left
+           let w = (i - 8) * (i - 8) * 2.5 * this.scale * (params.bodyWidth || 0.4);
+           let p = getP(i, PI/2, w);
+           curveVertex(p.x, p.y);
+        }
+        endShape(ctx, isShadow ? color : 'rgba(255, 255, 255, 0.4)');
+
+        beginShape();
+        for (let i = 0; i < 10; i++) { // Body Right
+            let p = getP(i, PI/2, 0);
+            curveVertex(p.x, p.y);
+        }
+        let pTail = getP(9, PI, 0);
+        curveVertex(pTail.x, pTail.y);
+        for (let i = 9; i >= 0; i--) { // Body Left
+            let p = getP(i, -PI/2, 0);
+            curveVertex(p.x, p.y);
+        }
+        let pHeadR = getP(0, -PI/6, 0); // Head
+        let pHeadTip = getP(0, 0, 4 * this.scale);
+        let pHeadL = getP(0, PI/6, 0);
+        curveVertex(pHeadR.x, pHeadR.y);
+        curveVertex(pHeadTip.x, pHeadTip.y);
+        curveVertex(pHeadL.x, pHeadL.y);
+        let pStart = getP(0, PI/2, 0); // Close
+        let pStart2 = getP(1, PI/2, 0);
+        curveVertex(pStart.x, pStart.y);
+        curveVertex(pStart2.x, pStart2.y);
+
+        // 2. Render Body + Spots
+        const renderSpots = () => {
+            if (isShadow) return;
+
+            // Draw spots if they exist
+            if (this.spots) {
+                this.spots.forEach(spot => {
+                    const idx = spot.segment;
+                    const iFloor = Math.floor(idx);
+                    const t = idx - iFloor;
+
+                    const getPosAt = (k) => {
+                        const wiggleMag = (k * 2.0 * this.scale);
+                        const wiggle = Math.sin(this.swimPhase - k * 0.5) * wiggleMag;
+                        return {
+                            x: j[k].x + Math.cos(a[k] + HALF_PI) * wiggle,
+                            y: j[k].y + Math.sin(a[k] + HALF_PI) * wiggle,
+                            w: this.getDynamicWidth(k)
+                        };
+                    };
+
+                    const p1 = getPosAt(iFloor);
+                    const p2 = getPosAt(Math.min(iFloor + 1, 11));
+
+                    const x = lerp(p1.x, p2.x, t);
+                    const y = lerp(p1.y, p2.y, t);
+                    const widthAtSeg = lerp(p1.w, p2.w, t);
+                    
+                    // Offset spot from center based on spine rotation
+                    const ang = a[iFloor]; 
+                    const perpX = Math.cos(ang + HALF_PI) * spot.offsetY * widthAtSeg;
+                    const perpY = Math.sin(ang + HALF_PI) * spot.offsetY * widthAtSeg;
+
+                    // BLENDING LOGIC: Use Radial Gradient for Soft Edges
+                    const radius = widthAtSeg * spot.size * (params.spotSize || 0.7);
+                    const cx = x + perpX;
+                    const cy = y + perpY;
+
+                    const grad = ctx.createRadialGradient(cx, cy, radius * 0.3, cx, cy, radius);
+                    grad.addColorStop(0, hexToRgba(spot.color, 0.95)); // Nearly opaque center
+                    grad.addColorStop(0.6, hexToRgba(spot.color, 0.7)); // Fade starts
+                    grad.addColorStop(1, hexToRgba(spot.color, 0.0)); // Transparent edge
+
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, TWO_PI);
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+                });
+            }
+        };
+
+        endShape(ctx, color, renderSpots);
+
+        if (!isShadow) {
+            // Dorsal Fin
+            beginShape();
+            vertex(j[4].x, j[4].y);
+            bezierVertex(j[5].x, j[5].y, j[6].x, j[6].y, j[7].x, j[7].y);
+            let cp2x = j[5].x + Math.cos(a[5]+HALF_PI) * 15 * this.scale;
+            let cp2y = j[5].y + Math.sin(a[5]+HALF_PI) * 15 * this.scale;
+            bezierVertex(j[7].x, j[7].y, cp2x, cp2y, j[4].x, j[4].y); 
+            endShape(ctx, 'rgba(255, 255, 255, 0.4)');
+
+            // Eyes
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            let eyeR = getP(0, PI/2, -6 * this.scale);
+            let eyeL = getP(0, -PI/2, -6 * this.scale);
+            let eyeSize = 5 * this.scale;
+            ctx.beginPath(); ctx.arc(eyeR.x, eyeR.y, eyeSize, 0, TWO_PI); ctx.fill();
+            ctx.beginPath(); ctx.arc(eyeL.x, eyeL.y, eyeSize, 0, TWO_PI); ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(eyeR.x, eyeR.y, eyeSize * 0.5, 0, TWO_PI); ctx.fill();
+            ctx.beginPath(); ctx.arc(eyeL.x, eyeL.y, eyeSize * 0.5, 0, TWO_PI); ctx.fill();
+        }
+    }
+
     drawBodyPathOnContext(c, leftPoints, rightPoints, head, headAngle) {
         c.beginPath();
         let noseX = head.pos.x + Math.cos(headAngle) * this.spine[0].size;

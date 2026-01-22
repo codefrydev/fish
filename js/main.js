@@ -31,6 +31,9 @@ let frogs = [];
 let grass = [];
 let boats = [];
 
+// Expose fish array for UI pattern updates
+window.fishArray = fish;
+
 // Boat wake ripples (simple array like the example)
 let boatWakeRipples = [];
 
@@ -136,8 +139,12 @@ function initFish() {
     
     fish = [];
     for (let i = 0; i < params.fishCount; i++) {
-        fish.push(new Koi(rand(w/2 - 100, w/2 + 100), rand(h/2 - 100, h/2 + 100)));
+        // Spawn fish at random points across the entire screen
+        fish.push(new Koi(rand(50, w - 50), rand(50, h - 50)));
     }
+    
+    // Update exposed fish array reference
+    window.fishArray = fish;
     
     // Update entity references
     updateEntityReferences();

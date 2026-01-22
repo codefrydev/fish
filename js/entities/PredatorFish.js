@@ -2,9 +2,145 @@
 
 import { Vector } from '../utils/Vector.js';
 import { params, CULL_MARGIN } from '../config.js';
-import { rand, dist, isInView, width, height } from '../utils/helpers.js';
+import { rand, dist, isInView, width, height, lerp } from '../utils/helpers.js';
 import { fishGrid } from '../utils/SpatialGrid.js';
 import { ripplePool, bloodPool } from '../systems/ObjectPool.js';
+
+// Math constants
+const PI = Math.PI;
+const TWO_PI = Math.PI * 2;
+const HALF_PI = Math.PI / 2;
+
+// Angle utility functions
+function simplifyAngle(angle) {
+    while (angle >= TWO_PI) angle -= TWO_PI;
+    while (angle < 0) angle += TWO_PI;
+    return angle;
+}
+
+function relativeAngleDiff(angle, anchor) {
+    angle = simplifyAngle(angle + PI - anchor);
+    anchor = PI;
+    return anchor - angle;
+}
+
+function constrainAngle(angle, anchor, constraint) {
+    if (Math.abs(relativeAngleDiff(angle, anchor)) <= constraint) return simplifyAngle(angle);
+    if (relativeAngleDiff(angle, anchor) > constraint) return simplifyAngle(anchor - constraint);
+    return simplifyAngle(anchor + constraint);
+}
+
+// Get the shortest angle difference between two angles (-PI to PI)
+function angleDifference(target, current) {
+    let diff = target - current;
+    while (diff > PI) diff -= TWO_PI;
+    while (diff < -PI) diff += TWO_PI;
+    return diff;
+}
+
+/**
+ * Chain class for smooth spine animation with angle constraints
+ */
+class Chain {
+    constructor(origin, jointCount, linkSize, angleConstraint = TWO_PI, trailAngle = 0) {
+        this.linkSize = linkSize;
+        this.angleConstraint = angleConstraint;
+        this.joints = [];
+        this.angles = [];
+        
+        this.joints.push(origin.copy());
+        this.angles.push(simplifyAngle(trailAngle + PI));
+
+        let offset = Vector.fromAngle(trailAngle);
+        offset.mult(linkSize);
+
+        for (let i = 1; i < jointCount; i++) {
+            const prev = this.joints[i - 1];
+            const newPos = Vector.add(prev, offset);
+            this.joints.push(newPos);
+            this.angles.push(simplifyAngle(trailAngle + PI));
+        }
+    }
+
+    resolve(pos) {
+        this.joints[0] = pos.copy();
+        for (let i = 1; i < this.joints.length; i++) {
+            const diff = Vector.sub(this.joints[i - 1], this.joints[i]);
+            const curAngle = Math.atan2(diff.y, diff.x);
+            this.angles[i] = constrainAngle(curAngle, this.angles[i - 1], this.angleConstraint);
+            const offset = Vector.fromAngle(this.angles[i]);
+            offset.mult(this.linkSize);
+            this.joints[i] = Vector.sub(this.joints[i - 1], offset);
+        }
+    }
+}
+
+// Shape rendering helpers (Processing-style)
+let shapeVertices = [];
+
+function beginShape() {
+    shapeVertices = [];
+}
+
+function vertex(x, y) {
+    shapeVertices.push({ x, y, type: 'vertex' });
+}
+
+function curveVertex(x, y) {
+    shapeVertices.push({ x, y, type: 'curve' });
+}
+
+function bezierVertex(cx1, cy1, cx2, cy2, x, y) {
+    shapeVertices.push({ cx1, cy1, cx2, cy2, x, y, type: 'bezier' });
+}
+
+function endShape(ctx, fillStyle, patternCallback) {
+    if (shapeVertices.length === 0) return;
+    ctx.beginPath();
+    
+    let isSpline = shapeVertices.some(v => v.type === 'curve');
+
+    if (isSpline && shapeVertices.length >= 4) {
+        ctx.moveTo(shapeVertices[1].x, shapeVertices[1].y);
+        for (let i = 1; i < shapeVertices.length - 2; i++) {
+            let p0 = shapeVertices[i - 1];
+            let p1 = shapeVertices[i];
+            let p2 = shapeVertices[i + 1];
+            let p3 = shapeVertices[i + 2];
+            
+            let cp1x = p1.x + (p2.x - p0.x) / 6;
+            let cp1y = p1.y + (p2.y - p0.y) / 6;
+            let cp2x = p2.x - (p3.x - p1.x) / 6;
+            let cp2y = p2.y - (p3.y - p1.y) / 6;
+            
+            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+        }
+    } else {
+        ctx.moveTo(shapeVertices[0].x, shapeVertices[0].y);
+        for (let i = 1; i < shapeVertices.length; i++) {
+            let v = shapeVertices[i];
+            if (v.type === 'bezier') {
+                ctx.bezierCurveTo(v.cx1, v.cy1, v.cx2, v.cy2, v.x, v.y);
+            } else {
+                ctx.lineTo(v.x, v.y);
+            }
+        }
+    }
+    
+    ctx.closePath();
+    
+    if (fillStyle) {
+        ctx.fillStyle = fillStyle;
+        ctx.fill();
+    }
+
+    if (patternCallback) {
+        ctx.save();
+        ctx.clip(); 
+        patternCallback();
+        ctx.restore();
+    }
+}
 
 function clamp01(value) {
     return Math.max(0, Math.min(1, value));
@@ -49,11 +185,13 @@ function rgbaFromHex(hex, alpha) {
 export class PredatorFish {
     constructor(x, y) {
         this.pos = new Vector(x, y);
-        this.vel = new Vector(rand(-0.5, 0.5), rand(-0.5, 0.5));
+        this.vel = Vector.fromAngle(rand(0, TWO_PI));
+        this.vel.mult(rand(0.3, 0.5));
         this.acc = new Vector(0, 0);
         
         this.size = rand(params.predatorSizeMin, params.predatorSizeMax);
-        this.baseSpeed = params.predatorBaseSpeed; // Slow when lurking
+        this.scale = this.size / 10; // Scale factor similar to Koi
+        this.baseSpeed = params.predatorBaseSpeed;
         this.maxSpeed = this.baseSpeed;
         this.maxForce = params.predatorMaxForceLurking;
         
@@ -64,11 +202,25 @@ export class PredatorFish {
         this.restTimer = 0;
         this.attackStartPos = null;
         
-        // Spine system (same as Koi)
-        this.spine = [];
-        this.spineLength = params.spineCount;
+        // Chain-based spine system
+        const spineCount = params.spineCount || 12;
+        const linkSize = 16 * this.scale;
+        const trailAngle = this.vel.heading() + PI;
+        this.spine = new Chain(this.pos, spineCount, linkSize, PI / 3, trailAngle);
+        this.spineLength = spineCount;
+        
+        // Base widths for body shape (slightly different proportions for predator)
+        this.baseWidths = [70, 85, 88, 87, 80, 68, 55, 42, 35, 22];
+        
+        // Swim phase for wiggle animation
+        this.swimPhase = rand(0, TWO_PI);
         this.swimTimer = Math.random() * params.fishInitialSwimTimer;
-        this.initSpine(x, y);
+        
+        // Smoothed velocity for angle calculation (reduces jitter)
+        this.smoothedVel = new Vector(this.vel.x, this.vel.y);
+        
+        // Track current head angle to prevent sudden 360 rotations
+        this.currentHeadAngle = simplifyAngle(this.vel.heading());
         
         // Stats
         this.huntCount = 0;
@@ -79,31 +231,9 @@ export class PredatorFish {
         this.lastTrailPos = null;
     }
     
-    initSpine(x, y) {
-        this.spine = [];
-        const d = this.size * params.distConstraint;
-        for (let i = 0; i < this.spineLength; i++) {
-            this.spine.push({
-                pos: new Vector(x - i * d, y),
-                size: this.calculateThickness(i)
-            });
-        }
-    }
-    
-    // Use same body shape as Koi
-    calculateThickness(i) {
-        const t = i / (this.spineLength - 1);
-        let thickness = 1.0;
-        
-        if (t < 0.25) {
-            thickness = params.fishThicknessHead + (t / 0.25) * params.fishThicknessNeck; 
-        } else {
-            let bodyT = (t - 0.25) / 0.75;
-            thickness = params.fishThicknessTaper * (1 - Math.pow(bodyT, params.tailTaper) * params.fishThicknessPow);
-        }
-        thickness = Math.max(params.fishThicknessMin, thickness);
-        
-        return this.size * thickness * params.fatness;
+    getDynamicWidth(i) {
+        const baseW = this.baseWidths[i] !== undefined ? this.baseWidths[i] : 10;
+        return baseW * this.scale * 0.6 * (params.predatorBodyWidth || 0.4);
     }
     
     applyForce(force) {
@@ -283,12 +413,28 @@ export class PredatorFish {
         this.pos.y += this.vel.y * scale;
         this.acc.mult(0);
         
-        // Swim animation (same as Koi)
+        // Swim animation
         let speed = this.vel.mag();
         this.swimTimer += (params.waveSpeedBase + (speed * params.waveSpeedMult)) * scale;
         
-        // Update spine
-        this.updateSpine();
+        // Smooth velocity for angle calculation to reduce jitter
+        const smoothFactor = 0.3;
+        this.smoothedVel.x = this.smoothedVel.x * (1 - smoothFactor) + this.vel.x * smoothFactor;
+        this.smoothedVel.y = this.smoothedVel.y * (1 - smoothFactor) + this.vel.y * smoothFactor;
+        
+        // Update Chain-based spine - use smoothed velocity heading with shortest path
+        const smoothedSpeed = this.smoothedVel.mag();
+        if (smoothedSpeed > 0.01) {
+            const targetAngle = this.smoothedVel.heading();
+            const angleDiff = angleDifference(targetAngle, this.currentHeadAngle);
+            this.currentHeadAngle = simplifyAngle(this.currentHeadAngle + angleDiff * 0.2);
+            this.spine.angles[0] = this.currentHeadAngle;
+        }
+        this.spine.resolve(this.pos);
+        
+        // Update swim phase for wiggle animation (more aggressive when attacking)
+        const wiggleMult = this.state === 'ATTACKING' ? params.predatorAttackWaveMult : 1.0;
+        this.swimPhase += (0.15 + (speed * 0.05)) * (params.predatorWiggle || 0.2) * wiggleMult * scale;
         
         // Update trail system
         this.updateTrail(dt);
@@ -312,31 +458,6 @@ export class PredatorFish {
         }
     }
     
-    updateSpine() {
-        this.spine[0].pos = new Vector(this.pos.x, this.pos.y);
-        
-        for (let i = 1; i < this.spineLength; i++) {
-            let prev = this.spine[i - 1].pos;
-            let curr = this.spine[i].pos;
-            
-            let dx = curr.x - prev.x;
-            let dy = curr.y - prev.y;
-            let angle = Math.atan2(dy, dx);
-            
-            // Use same wave parameters as Koi, but more aggressive when attacking
-            let waveAmt = Math.min(params.waveAmpMax, i * params.waveAmpGain);
-            if (this.state === 'ATTACKING') waveAmt *= params.predatorAttackWaveMult;
-            let wave = Math.sin(this.swimTimer - i * params.fishWavePhaseOffset) * waveAmt;
-            angle += wave;
-            
-            const segDist = this.size * params.distConstraint;
-            curr.x = prev.x + Math.cos(angle) * segDist;
-            curr.y = prev.y + Math.sin(angle) * segDist;
-            
-            this.spine[i].size = this.calculateThickness(i);
-        }
-    }
-    
     updateTrail(dt) {
         const scale = dt * 60;
         
@@ -357,20 +478,21 @@ export class PredatorFish {
         
         // Add new trail points only during ATTACKING state
         if (this.state === 'ATTACKING') {
-            // Calculate eye positions
-            const head = this.spine[0];
-            const neck = this.spine[1];
-            const headAngle = Math.atan2(head.pos.y - neck.pos.y, head.pos.x - neck.pos.x);
+            // Calculate eye positions using Chain
+            const j = this.spine.joints;
+            const a = this.spine.angles;
+            const headAngle = a[0];
             
-            const s = this.size / 22;
+            const s = this.scale;
             const eyeOffset = 7 * s;
+            const w = this.getDynamicWidth(0);
             
             // Calculate world positions of both eyes
-            const leftEyeX = head.pos.x + Math.cos(headAngle) * eyeOffset + Math.cos(headAngle - Math.PI/2) * eyeOffset;
-            const leftEyeY = head.pos.y + Math.sin(headAngle) * eyeOffset + Math.sin(headAngle - Math.PI/2) * eyeOffset;
+            const leftEyeX = j[0].x + Math.cos(headAngle) * eyeOffset + Math.cos(headAngle - HALF_PI) * w * 0.5;
+            const leftEyeY = j[0].y + Math.sin(headAngle) * eyeOffset + Math.sin(headAngle - HALF_PI) * w * 0.5;
             
-            const rightEyeX = head.pos.x + Math.cos(headAngle) * eyeOffset + Math.cos(headAngle + Math.PI/2) * eyeOffset;
-            const rightEyeY = head.pos.y + Math.sin(headAngle) * eyeOffset + Math.sin(headAngle + Math.PI/2) * eyeOffset;
+            const rightEyeX = j[0].x + Math.cos(headAngle) * eyeOffset + Math.cos(headAngle + HALF_PI) * w * 0.5;
+            const rightEyeY = j[0].y + Math.sin(headAngle) * eyeOffset + Math.sin(headAngle + HALF_PI) * w * 0.5;
             
             // Check if we should add a new trail point based on distance
             let shouldAddPoint = false;
@@ -378,8 +500,8 @@ export class PredatorFish {
             if (!this.lastTrailPos) {
                 shouldAddPoint = true;
             } else {
-                const dx = head.pos.x - this.lastTrailPos.x;
-                const dy = head.pos.y - this.lastTrailPos.y;
+                const dx = j[0].x - this.lastTrailPos.x;
+                const dy = j[0].y - this.lastTrailPos.y;
                 const distSq = dx * dx + dy * dy;
                 const spacingSq = params.predatorTrailSpacing * params.predatorTrailSpacing;
                 
@@ -400,7 +522,7 @@ export class PredatorFish {
                     pupilSize: params.predatorEyeSizeRatio * s * params.predatorEyeIrisRatio * params.predatorEyePupilRatio
                 });
                 
-                this.lastTrailPos = { x: head.pos.x, y: head.pos.y };
+                this.lastTrailPos = { x: j[0].x, y: j[0].y };
                 
                 // Limit trail length
                 if (this.trail.length > params.predatorTrailMaxLength) {
@@ -488,116 +610,46 @@ export class PredatorFish {
         ctx.globalAlpha = 1;
     }
     
+    display(ctx) {
+        const j = this.spine.joints;
+        const a = this.spine.angles;
+        
+        const getP = (i, angOff, lenOff) => {
+            const w = this.getDynamicWidth(i);
+            const wiggleMag = (i * 2.0 * this.scale);
+            const wiggleMult = this.state === 'ATTACKING' ? params.predatorAttackWaveMult : 1.0;
+            const wiggle = Math.sin(this.swimPhase - i * 0.5) * wiggleMag * wiggleMult;
+            
+            const px = Math.cos(a[i] + HALF_PI) * wiggle;
+            const py = Math.sin(a[i] + HALF_PI) * wiggle;
+            
+            const baseX = j[i].x + px;
+            const baseY = j[i].y + py;
+
+            return {
+                x: baseX + Math.cos(a[i] + angOff) * (w + lenOff),
+                y: baseY + Math.sin(a[i] + angOff) * (w + lenOff)
+            };
+        };
+
+        // Shadow
+        ctx.save();
+        ctx.translate(20, 20);
+        this.drawBodyAndFins(ctx, 'rgba(0,0,0,0.2)', true, getP, j, a);
+        ctx.restore();
+
+        // Predator body
+        this.drawBodyAndFins(ctx, params.predatorColor, false, getP, j, a);
+    }
+
     draw(ctx) {
         if (!isInView(this.pos.x, this.pos.y, CULL_MARGIN + this.size * 2)) return;
         
         // Draw trail first (behind the predator)
         this.drawTrail(ctx);
         
-        let leftPoints = [];
-        let rightPoints = [];
-        
-        let head = this.spine[0];
-        let neck = this.spine[1];
-        let headAngle = Math.atan2(head.pos.y - neck.pos.y, head.pos.x - neck.pos.x);
-        
-        for (let i = 0; i < this.spineLength; i++) {
-            let s = this.spine[i];
-            let a;
-            
-            if (i === 0) {
-                a = headAngle;
-            } else if (i === this.spineLength - 1) {
-                let prev = this.spine[i-1];
-                a = Math.atan2(s.pos.y - prev.pos.y, s.pos.x - prev.pos.x);
-            } else {
-                let next = this.spine[i+1];
-                let prev = this.spine[i-1];
-                a = Math.atan2(next.pos.y - prev.pos.y, next.pos.x - prev.pos.x);
-            }
-            
-            let px = Math.cos(a + Math.PI/2);
-            let py = Math.sin(a + Math.PI/2);
-            
-            leftPoints.push({x: s.pos.x + px * s.size, y: s.pos.y + py * s.size});
-            rightPoints.push({x: s.pos.x - px * s.size, y: s.pos.y - py * s.size});
-        }
-        
-        // Draw fins behind body (same as Koi)
-        this.drawFins(ctx, head, headAngle, false);
-        
-        // Draw body with shaded gradient
-        ctx.save();
-        this.drawBodyPath(ctx, leftPoints, rightPoints, head, headAngle);
-        
-        let maxRadius = 0;
-        for (const s of this.spine) {
-            if (s.size > maxRadius) maxRadius = s.size;
-        }
-        const midIndex = Math.floor(this.spineLength * 0.4);
-        const midPoint = this.spine[midIndex].pos;
-        const perpAngle = headAngle + Math.PI / 2;
-        const gradRadius = maxRadius * 1.25;
-        const gx0 = midPoint.x + Math.cos(perpAngle) * gradRadius;
-        const gy0 = midPoint.y + Math.sin(perpAngle) * gradRadius;
-        const gx1 = midPoint.x - Math.cos(perpAngle) * gradRadius;
-        const gy1 = midPoint.y - Math.sin(perpAngle) * gradRadius;
-        
-        const bodyGradient = ctx.createLinearGradient(gx0, gy0, gx1, gy1);
-        bodyGradient.addColorStop(0, adjustColor(params.predatorColor, -params.predatorBodyShadeDark));
-        bodyGradient.addColorStop(0.45, adjustColor(params.predatorColor, params.predatorBodyShadeLight * 0.5));
-        bodyGradient.addColorStop(0.55, adjustColor(params.predatorColor, params.predatorBodyShadeLight));
-        bodyGradient.addColorStop(1, adjustColor(params.predatorColor, -params.predatorBodyShadeDark * 0.75));
-        ctx.fillStyle = bodyGradient;
-        ctx.fill();
-        
-        ctx.fillStyle = rgbaFromHex(params.predatorColor, params.predatorBodySolidAlpha);
-        ctx.fill();
-        
-        const lightDirX = 0.4;
-        const lightDirY = -0.9;
-        const lightLen = Math.hypot(lightDirX, lightDirY) || 1;
-        const lx = lightDirX / lightLen;
-        const ly = lightDirY / lightLen;
-        const highlightOffset = this.size * 0.18;
-        
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        for (let i = 0; i < this.spineLength - 1; i++) {
-            const s = this.spine[i];
-            const hx = s.pos.x + lx * highlightOffset * (s.size / maxRadius);
-            const hy = s.pos.y + ly * highlightOffset * (s.size / maxRadius);
-            if (i === 0) ctx.moveTo(hx, hy);
-            else ctx.lineTo(hx, hy);
-        }
-        ctx.strokeStyle = `rgba(255, 255, 255, ${params.predatorSpecularOuterAlpha})`;
-        ctx.lineWidth = this.size * params.predatorSpecularWidth;
-        ctx.stroke();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${params.predatorSpecularInnerAlpha})`;
-        ctx.lineWidth = this.size * params.predatorSpecularInnerWidth;
-        ctx.stroke();
-        ctx.restore();
-        
-        ctx.restore();
-        
-        ctx.save();
-        this.drawBodyPath(ctx, leftPoints, rightPoints, head, headAngle);
-        ctx.strokeStyle = rgbaFromHex(adjustColor(params.predatorColor, -params.predatorOutlineDarken), params.predatorOutlineAlpha);
-        ctx.lineWidth = Math.max(1, this.size * params.predatorOutlineWidth);
-        ctx.stroke();
-        ctx.restore();
-        
-        // Draw dorsal fin
-        this.drawDorsalFin(ctx);
-        
-        // Draw fins in front
-        this.drawFins(ctx, head, headAngle, true);
-        
-        // Draw eyes
-        this.drawEyes(ctx, head, headAngle);
+        // Draw predator body
+        this.display(ctx);
         
         // Draw attack indicator when detecting/attacking
         if (this.state === 'DETECTING' || this.state === 'ATTACKING') {
@@ -613,7 +665,215 @@ export class PredatorFish {
         }
     }
     
-    // Same body path as Koi
+    drawBodyAndFins(ctx, color, isShadow, getP, j, a) {
+        // Ensure color is valid - use color directly for shadows, otherwise use predator color
+        const baseColor = isShadow ? color : ((color && typeof color === 'string' && color.startsWith('#')) ? color : params.predatorColor || '#1a3d2e');
+        
+        // FINS
+        const drawSingleFin = (idx, angleOffset, rot, len, wid) => {
+             const wiggleMag = (idx * 2.0 * this.scale);
+             const wiggleMult = this.state === 'ATTACKING' ? params.predatorAttackWaveMult : 1.0;
+             const wiggle = Math.sin(this.swimPhase - idx * 0.5) * wiggleMag * wiggleMult;
+             const px = Math.cos(a[idx] + HALF_PI) * wiggle;
+             const py = Math.sin(a[idx] + HALF_PI) * wiggle;
+             const w = this.getDynamicWidth(idx) * 0.8;
+             const bx = j[idx].x + px + Math.cos(a[idx] + angleOffset) * w;
+             const by = j[idx].y + py + Math.sin(a[idx] + angleOffset) * w;
+
+             ctx.save();
+             ctx.translate(bx, by);
+             ctx.rotate(rot);
+             ctx.beginPath();
+             ctx.ellipse(0, 0, len, wid, 0, 0, TWO_PI);
+             ctx.fillStyle = isShadow ? 'rgba(0,0,0,0)' : 'rgba(255, 255, 255, 0.4)';
+             ctx.fill();
+             ctx.restore();
+        }
+
+        drawSingleFin(3, PI/3, a[2] - PI/4, 40 * this.scale, 16 * this.scale);
+        drawSingleFin(3, -PI/3, a[2] + PI/4, 40 * this.scale, 16 * this.scale);
+        drawSingleFin(7, PI/2, a[6] - PI/4, 24 * this.scale, 8 * this.scale);
+        drawSingleFin(7, -PI/2, a[6] + PI/4, 24 * this.scale, 8 * this.scale);
+
+        // BODY CONSTRUCTION
+        beginShape();
+        for (let i = 8; i < 12; i++) { // Tail Right
+           let w = (i - 8) * (i - 8) * 2.5 * this.scale * (params.predatorBodyWidth || 0.4);
+           let p = getP(i, -PI/2, w); 
+           curveVertex(p.x, p.y);
+        }
+        for (let i = 11; i >= 8; i--) { // Tail Left
+           let w = (i - 8) * (i - 8) * 2.5 * this.scale * (params.predatorBodyWidth || 0.4);
+           let p = getP(i, PI/2, w);
+           curveVertex(p.x, p.y);
+        }
+        endShape(ctx, isShadow ? color : 'rgba(255, 255, 255, 0.4)');
+
+        beginShape();
+        for (let i = 0; i < 10; i++) { // Body Right
+            let p = getP(i, PI/2, 0);
+            curveVertex(p.x, p.y);
+        }
+        let pTail = getP(9, PI, 0);
+        curveVertex(pTail.x, pTail.y);
+        for (let i = 9; i >= 0; i--) { // Body Left
+            let p = getP(i, -PI/2, 0);
+            curveVertex(p.x, p.y);
+        }
+        let pHeadR = getP(0, -PI/6, 0); // Head
+        let pHeadTip = getP(0, 0, 4 * this.scale);
+        let pHeadL = getP(0, PI/6, 0);
+        curveVertex(pHeadR.x, pHeadR.y);
+        curveVertex(pHeadTip.x, pHeadTip.y);
+        curveVertex(pHeadL.x, pHeadL.y);
+        let pStart = getP(0, PI/2, 0); // Close
+        let pStart2 = getP(1, PI/2, 0);
+        curveVertex(pStart.x, pStart.y);
+        curveVertex(pStart2.x, pStart2.y);
+
+        // Render body with gradient (only if not shadow)
+        if (isShadow) {
+            endShape(ctx, color);
+        } else {
+            const bodyGradient = ctx.createLinearGradient(
+                j[4].x, j[4].y - this.getDynamicWidth(4),
+                j[4].x, j[4].y + this.getDynamicWidth(4)
+            );
+            const shadeDark = params.predatorBodyShadeDark || 0.4;
+            const shadeLight = params.predatorBodyShadeLight || 0.15;
+            bodyGradient.addColorStop(0, adjustColor(baseColor, -shadeDark));
+            bodyGradient.addColorStop(0.45, adjustColor(baseColor, shadeLight * 0.5));
+            bodyGradient.addColorStop(0.55, adjustColor(baseColor, shadeLight));
+            bodyGradient.addColorStop(1, adjustColor(baseColor, -shadeDark * 0.75));
+            endShape(ctx, bodyGradient);
+        }
+        
+        if (!isShadow) {
+            // Add solid overlay
+            beginShape();
+            for (let i = 0; i < 10; i++) {
+                let p = getP(i, PI/2, 0);
+                curveVertex(p.x, p.y);
+            }
+            pTail = getP(9, PI, 0);
+            curveVertex(pTail.x, pTail.y);
+            for (let i = 9; i >= 0; i--) {
+                let p = getP(i, -PI/2, 0);
+                curveVertex(p.x, p.y);
+            }
+            pHeadR = getP(0, -PI/6, 0);
+            pHeadTip = getP(0, 0, 4 * this.scale);
+            pHeadL = getP(0, PI/6, 0);
+            curveVertex(pHeadR.x, pHeadR.y);
+            curveVertex(pHeadTip.x, pHeadTip.y);
+            curveVertex(pHeadL.x, pHeadL.y);
+            pStart = getP(0, PI/2, 0);
+            pStart2 = getP(1, PI/2, 0);
+            curveVertex(pStart.x, pStart.y);
+            curveVertex(pStart2.x, pStart2.y);
+            endShape(ctx, rgbaFromHex(baseColor, params.predatorBodySolidAlpha || 0.5));
+            
+            // Specular highlight
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            const lightDirX = 0.4;
+            const lightDirY = -0.9;
+            const lightLen = Math.hypot(lightDirX, lightDirY) || 1;
+            const lx = lightDirX / lightLen;
+            const ly = lightDirY / lightLen;
+            const highlightOffset = this.size * 0.18;
+            for (let i = 0; i < 10; i++) {
+                const hx = j[i].x + lx * highlightOffset;
+                const hy = j[i].y + ly * highlightOffset;
+                if (i === 0) ctx.moveTo(hx, hy);
+                else ctx.lineTo(hx, hy);
+            }
+            ctx.strokeStyle = `rgba(255, 255, 255, ${params.predatorSpecularOuterAlpha})`;
+            ctx.lineWidth = this.size * params.predatorSpecularWidth;
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(255, 255, 255, ${params.predatorSpecularInnerAlpha})`;
+            ctx.lineWidth = this.size * params.predatorSpecularInnerWidth;
+            ctx.stroke();
+            ctx.restore();
+            
+            // Outline
+            beginShape();
+            for (let i = 0; i < 10; i++) {
+                let p = getP(i, PI/2, 0);
+                curveVertex(p.x, p.y);
+            }
+            pTail = getP(9, PI, 0);
+            curveVertex(pTail.x, pTail.y);
+            for (let i = 9; i >= 0; i--) {
+                let p = getP(i, -PI/2, 0);
+                curveVertex(p.x, p.y);
+            }
+            pHeadR = getP(0, -PI/6, 0);
+            pHeadTip = getP(0, 0, 4 * this.scale);
+            pHeadL = getP(0, PI/6, 0);
+            curveVertex(pHeadR.x, pHeadR.y);
+            curveVertex(pHeadTip.x, pHeadTip.y);
+            curveVertex(pHeadL.x, pHeadL.y);
+            pStart = getP(0, PI/2, 0);
+            pStart2 = getP(1, PI/2, 0);
+            curveVertex(pStart.x, pStart.y);
+            curveVertex(pStart2.x, pStart2.y);
+            const outlineDarken = params.predatorOutlineDarken || 0.6;
+            const outlineAlpha = params.predatorOutlineAlpha || 0.35;
+            ctx.strokeStyle = rgbaFromHex(adjustColor(baseColor, -outlineDarken), outlineAlpha);
+            ctx.lineWidth = Math.max(1, this.size * (params.predatorOutlineWidth || 0.07));
+            ctx.stroke();
+            
+            // Dorsal Fin
+            beginShape();
+            vertex(j[4].x, j[4].y);
+            bezierVertex(j[5].x, j[5].y, j[6].x, j[6].y, j[7].x, j[7].y);
+            let cp2x = j[5].x + Math.cos(a[5]+HALF_PI) * 15 * this.scale;
+            let cp2y = j[5].y + Math.sin(a[5]+HALF_PI) * 15 * this.scale;
+            bezierVertex(j[7].x, j[7].y, cp2x, cp2y, j[4].x, j[4].y); 
+            endShape(ctx, 'rgba(255, 255, 255, 0.4)');
+
+            // Eyes
+            ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            let eyeR = getP(0, PI/2, -6 * this.scale);
+            let eyeL = getP(0, -PI/2, -6 * this.scale);
+            let eyeSize = 5 * this.scale;
+            ctx.beginPath(); ctx.arc(eyeR.x, eyeR.y, eyeSize, 0, TWO_PI); ctx.fill();
+            ctx.beginPath(); ctx.arc(eyeL.x, eyeL.y, eyeSize, 0, TWO_PI); ctx.fill();
+            
+            // Eye glow when attacking
+            if (this.state === 'ATTACKING') {
+                const glowPulse = Math.sin(this.swimTimer * params.predatorEyeGlowPulseSpeed) * 0.3 + 0.7;
+                const glowRadius = eyeSize * params.predatorEyeGlowOuterRadius * params.predatorEyeGlowIntensity * glowPulse;
+                const glowGradient = ctx.createRadialGradient(eyeR.x, eyeR.y, 0, eyeR.x, eyeR.y, glowRadius);
+                glowGradient.addColorStop(0, `rgba(255, 60, 40, ${params.predatorEyeAttackGlowAlpha * glowPulse})`);
+                glowGradient.addColorStop(0.5, `rgba(255, 80, 50, ${params.predatorEyeAttackGlowAlpha * 0.5 * glowPulse})`);
+                glowGradient.addColorStop(1, 'rgba(255, 100, 60, 0)');
+                ctx.fillStyle = glowGradient;
+                ctx.beginPath();
+                ctx.arc(eyeR.x, eyeR.y, glowRadius, 0, TWO_PI);
+                ctx.fill();
+                
+                const glowGradient2 = ctx.createRadialGradient(eyeL.x, eyeL.y, 0, eyeL.x, eyeL.y, glowRadius);
+                glowGradient2.addColorStop(0, `rgba(255, 60, 40, ${params.predatorEyeAttackGlowAlpha * glowPulse})`);
+                glowGradient2.addColorStop(0.5, `rgba(255, 80, 50, ${params.predatorEyeAttackGlowAlpha * 0.5 * glowPulse})`);
+                glowGradient2.addColorStop(1, 'rgba(255, 100, 60, 0)');
+                ctx.fillStyle = glowGradient2;
+                ctx.beginPath();
+                ctx.arc(eyeL.x, eyeL.y, glowRadius, 0, TWO_PI);
+                ctx.fill();
+            }
+            
+            ctx.fillStyle = 'black';
+            ctx.beginPath(); ctx.arc(eyeR.x, eyeR.y, eyeSize * 0.5, 0, TWO_PI); ctx.fill();
+            ctx.beginPath(); ctx.arc(eyeL.x, eyeL.y, eyeSize * 0.5, 0, TWO_PI); ctx.fill();
+        }
+    }
+
+    // Same body path as Koi (kept for compatibility, but not used)
     drawBodyPath(ctx, leftPoints, rightPoints, head, headAngle) {
         ctx.beginPath();
         let noseX = head.pos.x + Math.cos(headAngle) * this.spine[0].size;
@@ -905,40 +1165,30 @@ export class PredatorFish {
     drawShadow(shadowCtx) {
         if (!isInView(this.pos.x, this.pos.y, CULL_MARGIN + this.size * 2)) return;
         
-        let leftPoints = [];
-        let rightPoints = [];
+        const j = this.spine.joints;
+        const a = this.spine.angles;
         
-        let head = this.spine[0];
-        let neck = this.spine[1];
-        let headAngle = Math.atan2(head.pos.y - neck.pos.y, head.pos.x - neck.pos.x);
-        
-        for (let i = 0; i < this.spineLength; i++) {
-            let s = this.spine[i];
-            let a;
+        const getP = (i, angOff, lenOff) => {
+            const w = this.getDynamicWidth(i);
+            const wiggleMag = (i * 2.0 * this.scale);
+            const wiggleMult = this.state === 'ATTACKING' ? params.predatorAttackWaveMult : 1.0;
+            const wiggle = Math.sin(this.swimPhase - i * 0.5) * wiggleMag * wiggleMult;
             
-            if (i === 0) {
-                a = headAngle;
-            } else if (i === this.spineLength - 1) {
-                let prev = this.spine[i-1];
-                a = Math.atan2(s.pos.y - prev.pos.y, s.pos.x - prev.pos.x);
-            } else {
-                let next = this.spine[i+1];
-                let prev = this.spine[i-1];
-                a = Math.atan2(next.pos.y - prev.pos.y, next.pos.x - prev.pos.x);
-            }
+            const px = Math.cos(a[i] + HALF_PI) * wiggle;
+            const py = Math.sin(a[i] + HALF_PI) * wiggle;
             
-            let px = Math.cos(a + Math.PI/2);
-            let py = Math.sin(a + Math.PI/2);
-            
-            leftPoints.push({x: s.pos.x + px * s.size, y: s.pos.y + py * s.size});
-            rightPoints.push({x: s.pos.x - px * s.size, y: s.pos.y - py * s.size});
-        }
+            const baseX = j[i].x + px;
+            const baseY = j[i].y + py;
+
+            return {
+                x: baseX + Math.cos(a[i] + angOff) * (w + lenOff),
+                y: baseY + Math.sin(a[i] + angOff) * (w + lenOff)
+            };
+        };
         
         shadowCtx.save();
-        shadowCtx.translate(params.shadowOffsetX, params.shadowOffsetY);
-        shadowCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        this.drawBodyPath(shadowCtx, leftPoints, rightPoints, head, headAngle);
-        shadowCtx.fill();
+        shadowCtx.translate(params.shadowOffsetX || 20, params.shadowOffsetY || 20);
+        this.drawBodyAndFins(shadowCtx, 'rgba(0,0,0,0.5)', true, getP, j, a);
         shadowCtx.restore();
     }
 }

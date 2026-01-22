@@ -47,4 +47,36 @@ export class Vector {
         }
         return this;
     }
+    
+    copy() {
+        return new Vector(this.x, this.y);
+    }
+    
+    static fromAngle(angle) {
+        return new Vector(Math.cos(angle), Math.sin(angle));
+    }
+    
+    static add(v1, v2) {
+        return new Vector(v1.x + v2.x, v1.y + v2.y);
+    }
+    
+    static sub(v1, v2) {
+        return new Vector(v1.x - v2.x, v1.y - v2.y);
+    }
+    
+    static dist(v1, v2) {
+        const dx = v1.x - v2.x;
+        const dy = v1.y - v2.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    heading() {
+        return Math.atan2(this.y, this.x);
+    }
+    
+    setMag(len) {
+        this.normalize();
+        this.mult(len);
+        return this;
+    }
 }
