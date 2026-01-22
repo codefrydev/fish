@@ -1,5 +1,6 @@
 // Snail class - slow creature that crawls on lily pads/stones and retracts from predators
 
+import { Entity } from './Entity.js';
 import { Vector } from '../utils/Vector.js';
 import { params, CULL_MARGIN } from '../config.js';
 import { rand, dist, isInView, width, height } from '../utils/helpers.js';
@@ -12,16 +13,18 @@ export function setAddRippleFunction(fn) {
     addRippleFn = fn;
 }
 
-export class Snail {
+export class Snail extends Entity {
     constructor(x, y) {
-        this.pos = new Vector(x, y);
-        this.vel = new Vector(rand(-0.1, 0.1), rand(-0.1, 0.1));
-        this.acc = new Vector(0, 0);
+        super(x, y);
         
+        // Override base class initialization with Snail-specific values
         this.size = rand(params.snailSizeMin, params.snailSizeMax);
         this.baseSpeed = rand(params.snailSpeedMin, params.snailSpeedMax);
         this.maxSpeed = this.baseSpeed * params.speedScale;
         this.maxForce = 0.01; // Very gentle turning
+        
+        // Initialize velocity
+        this.vel = new Vector(rand(-0.1, 0.1), rand(-0.1, 0.1));
         
         // Visual properties
         this.shellColor = params.snailShellColor;
@@ -51,19 +54,6 @@ export class Snail {
         // Target surface (lily pad or stone)
         this.targetSurface = null;
         this.onSurface = false;
-    }
-    
-    seek(target) {
-        let desired = new Vector(target.x - this.pos.x, target.y - this.pos.y);
-        desired.normalize();
-        desired.mult(this.maxSpeed);
-        let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
-        steer.limit(this.maxForce);
-        return steer;
-    }
-    
-    applyForce(force) {
-        this.acc.add(force);
     }
     
     behaviors(pads, stones, dt = 1/60) {
@@ -113,21 +103,11 @@ export class Snail {
         }
         
         // Boundary avoidance
-        let desired = null;
-        const margin = 80;
+        this.stayInBounds(80, 2);
         
-        if (this.pos.x < margin) desired = new Vector(this.maxSpeed, this.vel.y);
-        else if (this.pos.x > width - margin) desired = new Vector(-this.maxSpeed, this.vel.y);
-        if (this.pos.y < margin) desired = new Vector(this.vel.x, this.maxSpeed);
-        else if (this.pos.y > height - margin) desired = new Vector(this.vel.x, -this.maxSpeed);
-        
-        if (desired) {
-            desired.normalize();
-            desired.mult(this.maxSpeed);
-            let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
-            steer.limit(this.maxForce * 2);
-            this.applyForce(steer);
-        } else {
+        // Only wander if not at boundary
+        if (this.pos.x >= 80 && this.pos.x <= width - 80 && 
+            this.pos.y >= 80 && this.pos.y <= height - 80) {
             // Gentle wander
             if (Math.random() < 0.02) {
                 let wander = new Vector(rand(-1, 1), rand(-1, 1));
@@ -231,30 +211,15 @@ export class Snail {
         
         this.behaviors(pads, stones, dt);
         
-        // Physics update
-        this.vel.x += this.acc.x * scale;
-        this.vel.y += this.acc.y * scale;
+        // Physics update - call parent update
+        super.update(dt);
         
-        // Slower when crawling
+        // Slower when crawling (override maxSpeed temporarily)
         if (this.state === 'CRAWLING' && this.onSurface) {
-            this.vel.limit(this.maxSpeed * params.snailCrawlSpeed);
-        } else {
+            const originalMaxSpeed = this.maxSpeed;
+            this.maxSpeed = originalMaxSpeed * params.snailCrawlSpeed;
             this.vel.limit(this.maxSpeed);
-        }
-        
-        this.pos.x += this.vel.x * scale;
-        this.pos.y += this.vel.y * scale;
-        this.acc.mult(0);
-        
-        // Update rotation to face movement direction
-        if (this.vel.mag() > 0.05) {
-            let targetRotation = Math.atan2(this.vel.y, this.vel.x);
-            // Smooth rotation
-            let rotDiff = targetRotation - this.rotation;
-            // Normalize to -PI to PI
-            while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
-            while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
-            this.rotation += rotDiff * 0.05 * scale;
+            this.maxSpeed = originalMaxSpeed;
         }
         
         // Tentacle animation

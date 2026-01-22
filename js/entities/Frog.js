@@ -1,5 +1,6 @@
 // Frog class - sits on lily pads and can jump
 
+import { Entity } from './Entity.js';
 import { Vector } from '../utils/Vector.js';
 import { params } from '../config.js';
 import { rand, dist, lerp, width, height } from '../utils/helpers.js';
@@ -11,12 +12,13 @@ export function setAddRippleFunction(fn) {
     addRippleFn = fn;
 }
 
-export class Frog {
+export class Frog extends Entity {
     constructor(pad) {
+        super(pad.x, pad.y);
+        
         this.pad = pad; 
         this.pad.hasFrog = true; 
         
-        this.pos = new Vector(pad.x, pad.y);
         this.rotation = rand(0, Math.PI * 2);
         this.color = `hsl(${rand(80, 110)}, ${rand(60,80)}%, ${rand(40,50)}%)`;
         this.size = pad.radius / 3;
@@ -25,7 +27,6 @@ export class Frog {
         
         // Swimming physics
         this.vel = new Vector(0, 0);
-        this.acc = new Vector(0, 0);
         this.swimSpeed = rand(params.frogSwimSpeedMin, params.frogSwimSpeedMax);
         this.maxSpeed = this.swimSpeed;
         this.maxForce = params.frogSwimForce;
@@ -259,21 +260,11 @@ export class Frog {
     
     applySwimBehaviors(pads) {
         // Boundary avoidance
-        let desired = null;
-        const margin = 80;
+        this.stayInBounds(80, 2);
         
-        if (this.pos.x < margin) desired = new Vector(this.maxSpeed, this.vel.y);
-        else if (this.pos.x > width - margin) desired = new Vector(-this.maxSpeed, this.vel.y);
-        if (this.pos.y < margin) desired = new Vector(this.vel.x, this.maxSpeed);
-        else if (this.pos.y > height - margin) desired = new Vector(this.vel.x, -this.maxSpeed);
-        
-        if (desired) {
-            desired.normalize();
-            desired.mult(this.maxSpeed);
-            let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
-            steer.limit(this.maxForce * 2);
-            this.applyForce(steer);
-        } else {
+        // Only wander if not at boundary
+        if (this.pos.x >= 80 && this.pos.x <= width - 80 && 
+            this.pos.y >= 80 && this.pos.y <= height - 80) {
             // Wander slightly
             if (Math.random() < 0.03) {
                 let wander = new Vector(rand(-1, 1), rand(-1, 1));
@@ -285,7 +276,7 @@ export class Frog {
         
         // Seek nearest lily pad if we have a target
         if (this.targetPad) {
-            let seekForce = this.seek(this.targetPad.x, this.targetPad.y);
+            let seekForce = this.seek(this.targetPad);
             seekForce.mult(1.5);
             this.applyForce(seekForce);
         } else {
@@ -311,18 +302,6 @@ export class Frog {
         }
     }
     
-    seek(x, y) {
-        let desired = new Vector(x - this.pos.x, y - this.pos.y);
-        desired.normalize();
-        desired.mult(this.maxSpeed);
-        let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
-        steer.limit(this.maxForce);
-        return steer;
-    }
-    
-    applyForce(force) {
-        this.acc.add(force);
-    }
     
     scare() {
         if (this.state !== 'DIVING') {

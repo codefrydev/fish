@@ -1,199 +1,46 @@
 // Predator Fish class - hunts koi fish
 
+import { Fish } from './Fish.js';
 import { Vector } from '../utils/Vector.js';
+import { Chain } from '../utils/Chain.js';
 import { params, CULL_MARGIN } from '../config.js';
 import { rand, dist, isInView, width, height, lerp } from '../utils/helpers.js';
 import { fishGrid } from '../utils/SpatialGrid.js';
 import { ripplePool, bloodPool } from '../systems/ObjectPool.js';
+import { adjustColor, rgbaFromHex } from '../utils/ColorUtils.js';
+import { simplifyAngle, angleDifference } from '../utils/AngleUtils.js';
+import { beginShape, vertex, curveVertex, bezierVertex, endShape } from '../utils/ShapeRenderer.js';
 
 // Math constants
 const PI = Math.PI;
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
 
-// Angle utility functions
-function simplifyAngle(angle) {
-    while (angle >= TWO_PI) angle -= TWO_PI;
-    while (angle < 0) angle += TWO_PI;
-    return angle;
-}
-
-function relativeAngleDiff(angle, anchor) {
-    angle = simplifyAngle(angle + PI - anchor);
-    anchor = PI;
-    return anchor - angle;
-}
-
-function constrainAngle(angle, anchor, constraint) {
-    if (Math.abs(relativeAngleDiff(angle, anchor)) <= constraint) return simplifyAngle(angle);
-    if (relativeAngleDiff(angle, anchor) > constraint) return simplifyAngle(anchor - constraint);
-    return simplifyAngle(anchor + constraint);
-}
-
-// Get the shortest angle difference between two angles (-PI to PI)
-function angleDifference(target, current) {
-    let diff = target - current;
-    while (diff > PI) diff -= TWO_PI;
-    while (diff < -PI) diff += TWO_PI;
-    return diff;
-}
-
-/**
- * Chain class for smooth spine animation with angle constraints
- */
-class Chain {
-    constructor(origin, jointCount, linkSize, angleConstraint = TWO_PI, trailAngle = 0) {
-        this.linkSize = linkSize;
-        this.angleConstraint = angleConstraint;
-        this.joints = [];
-        this.angles = [];
-        
-        this.joints.push(origin.copy());
-        this.angles.push(simplifyAngle(trailAngle + PI));
-
-        let offset = Vector.fromAngle(trailAngle);
-        offset.mult(linkSize);
-
-        for (let i = 1; i < jointCount; i++) {
-            const prev = this.joints[i - 1];
-            const newPos = Vector.add(prev, offset);
-            this.joints.push(newPos);
-            this.angles.push(simplifyAngle(trailAngle + PI));
-        }
-    }
-
-    resolve(pos) {
-        this.joints[0] = pos.copy();
-        for (let i = 1; i < this.joints.length; i++) {
-            const diff = Vector.sub(this.joints[i - 1], this.joints[i]);
-            const curAngle = Math.atan2(diff.y, diff.x);
-            this.angles[i] = constrainAngle(curAngle, this.angles[i - 1], this.angleConstraint);
-            const offset = Vector.fromAngle(this.angles[i]);
-            offset.mult(this.linkSize);
-            this.joints[i] = Vector.sub(this.joints[i - 1], offset);
-        }
-    }
-}
-
-// Shape rendering helpers (Processing-style)
-let shapeVertices = [];
-
-function beginShape() {
-    shapeVertices = [];
-}
-
-function vertex(x, y) {
-    shapeVertices.push({ x, y, type: 'vertex' });
-}
-
-function curveVertex(x, y) {
-    shapeVertices.push({ x, y, type: 'curve' });
-}
-
-function bezierVertex(cx1, cy1, cx2, cy2, x, y) {
-    shapeVertices.push({ cx1, cy1, cx2, cy2, x, y, type: 'bezier' });
-}
-
-function endShape(ctx, fillStyle, patternCallback) {
-    if (shapeVertices.length === 0) return;
-    ctx.beginPath();
-    
-    let isSpline = shapeVertices.some(v => v.type === 'curve');
-
-    if (isSpline && shapeVertices.length >= 4) {
-        ctx.moveTo(shapeVertices[1].x, shapeVertices[1].y);
-        for (let i = 1; i < shapeVertices.length - 2; i++) {
-            let p0 = shapeVertices[i - 1];
-            let p1 = shapeVertices[i];
-            let p2 = shapeVertices[i + 1];
-            let p3 = shapeVertices[i + 2];
-            
-            let cp1x = p1.x + (p2.x - p0.x) / 6;
-            let cp1y = p1.y + (p2.y - p0.y) / 6;
-            let cp2x = p2.x - (p3.x - p1.x) / 6;
-            let cp2y = p2.y - (p3.y - p1.y) / 6;
-            
-            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-        }
-    } else {
-        ctx.moveTo(shapeVertices[0].x, shapeVertices[0].y);
-        for (let i = 1; i < shapeVertices.length; i++) {
-            let v = shapeVertices[i];
-            if (v.type === 'bezier') {
-                ctx.bezierCurveTo(v.cx1, v.cy1, v.cx2, v.cy2, v.x, v.y);
-            } else {
-                ctx.lineTo(v.x, v.y);
-            }
-        }
-    }
-    
-    ctx.closePath();
-    
-    if (fillStyle) {
-        ctx.fillStyle = fillStyle;
-        ctx.fill();
-    }
-
-    if (patternCallback) {
-        ctx.save();
-        ctx.clip(); 
-        patternCallback();
-        ctx.restore();
-    }
-}
-
-function clamp01(value) {
-    return Math.max(0, Math.min(1, value));
-}
-
-function hexToRgb(hex) {
-    const clean = hex.replace('#', '');
-    const r = parseInt(clean.slice(0, 2), 16);
-    const g = parseInt(clean.slice(2, 4), 16);
-    const b = parseInt(clean.slice(4, 6), 16);
-    return { r, g, b };
-}
-
-function rgbToHex({ r, g, b }) {
-    const toHex = (v) => v.toString(16).padStart(2, '0');
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-function mixColors(a, b, t) {
-    const ca = hexToRgb(a);
-    const cb = hexToRgb(b);
-    const k = clamp01(t);
-    return rgbToHex({
-        r: Math.round(ca.r + (cb.r - ca.r) * k),
-        g: Math.round(ca.g + (cb.g - ca.g) * k),
-        b: Math.round(ca.b + (cb.b - ca.b) * k)
-    });
-}
-
-function adjustColor(hex, amount) {
-    if (amount >= 0) {
-        return mixColors(hex, '#ffffff', clamp01(amount));
-    }
-    return mixColors(hex, '#000000', clamp01(-amount));
-}
-
-function rgbaFromHex(hex, alpha) {
-    const { r, g, b } = hexToRgb(hex);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-export class PredatorFish {
+export class PredatorFish extends Fish {
     constructor(x, y) {
-        this.pos = new Vector(x, y);
-        this.vel = Vector.fromAngle(rand(0, TWO_PI));
-        this.vel.mult(rand(0.3, 0.5));
-        this.acc = new Vector(0, 0);
+        super(x, y);
         
+        // Override base class initialization with Predator-specific values
         this.size = rand(params.predatorSizeMin, params.predatorSizeMax);
         this.scale = this.size / 10; // Scale factor similar to Koi
         this.baseSpeed = params.predatorBaseSpeed;
         this.maxSpeed = this.baseSpeed;
         this.maxForce = params.predatorMaxForceLurking;
+        
+        // Initialize velocity with random speed
+        this.vel = Vector.fromAngle(rand(0, TWO_PI));
+        this.vel.mult(rand(0.3, 0.5));
+        
+        // Reinitialize spine with correct scale
+        const spineCount = params.spineCount || 12;
+        const linkSize = 16 * this.scale;
+        const trailAngle = this.vel.heading() + PI;
+        this.spine = new Chain(this.pos, spineCount, linkSize, PI / 3, trailAngle);
+        this.spineLength = spineCount;
+        
+        // Reinitialize smoothed velocity and head angle
+        this.smoothedVel = new Vector(this.vel.x, this.vel.y);
+        this.currentHeadAngle = simplifyAngle(this.vel.heading());
         
         // State machine
         this.state = 'LURKING';
@@ -201,23 +48,6 @@ export class PredatorFish {
         this.stateTimer = 0;
         this.restTimer = 0;
         this.attackStartPos = null;
-        
-        // Chain-based spine system
-        const spineCount = params.spineCount || 12;
-        const linkSize = 16 * this.scale;
-        const trailAngle = this.vel.heading() + PI;
-        this.spine = new Chain(this.pos, spineCount, linkSize, PI / 3, trailAngle);
-        this.spineLength = spineCount;
-        
-        // Swim phase for wiggle animation
-        this.swimPhase = rand(0, TWO_PI);
-        this.swimTimer = Math.random() * params.fishInitialSwimTimer;
-        
-        // Smoothed velocity for angle calculation (reduces jitter)
-        this.smoothedVel = new Vector(this.vel.x, this.vel.y);
-        
-        // Track current head angle to prevent sudden 360 rotations
-        this.currentHeadAngle = simplifyAngle(this.vel.heading());
         
         // Stats
         this.huntCount = 0;
@@ -231,19 +61,6 @@ export class PredatorFish {
     getDynamicWidth(i) {
         const baseW = params.fishShape[i] !== undefined ? params.fishShape[i] : 10;
         return baseW * this.scale * 0.6 * (params.predatorBodyWidth || 0.4);
-    }
-    
-    applyForce(force) {
-        this.acc.add(force);
-    }
-    
-    seek(target, speedMult = 1) {
-        let desired = new Vector(target.x - this.pos.x, target.y - this.pos.y);
-        desired.normalize();
-        desired.mult(this.maxSpeed * speedMult);
-        let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
-        steer.limit(this.maxForce * speedMult);
-        return steer;
     }
     
     findTarget(koiList) {
@@ -401,58 +218,24 @@ export class PredatorFish {
                 break;
         }
         
-        // Physics update
-        this.vel.x += this.acc.x * scale;
-        this.vel.y += this.acc.y * scale;
-        this.vel.limit(this.maxSpeed);
+        // Physics update - call parent update which handles physics, spine, and swim animation
+        super.update(dt);
         
-        this.pos.x += this.vel.x * scale;
-        this.pos.y += this.vel.y * scale;
-        this.acc.mult(0);
-        
-        // Swim animation
-        let speed = this.vel.mag();
-        this.swimTimer += (params.waveSpeedBase + (speed * params.waveSpeedMult)) * scale;
-        
-        // Smooth velocity for angle calculation to reduce jitter
-        const smoothFactor = 0.3;
-        this.smoothedVel.x = this.smoothedVel.x * (1 - smoothFactor) + this.vel.x * smoothFactor;
-        this.smoothedVel.y = this.smoothedVel.y * (1 - smoothFactor) + this.vel.y * smoothFactor;
-        
-        // Update Chain-based spine - use smoothed velocity heading with shortest path
-        const smoothedSpeed = this.smoothedVel.mag();
-        if (smoothedSpeed > 0.01) {
-            const targetAngle = this.smoothedVel.heading();
-            const angleDiff = angleDifference(targetAngle, this.currentHeadAngle);
-            this.currentHeadAngle = simplifyAngle(this.currentHeadAngle + angleDiff * 0.2);
-            this.spine.angles[0] = this.currentHeadAngle;
+        // Predator-specific: adjust swim phase for attack wiggle
+        if (this.state === 'ATTACKING') {
+            const speed = this.vel.mag();
+            const wiggleMult = params.predatorAttackWaveMult || 1.0;
+            const additionalWiggle = (0.15 + (speed * 0.05)) * (params.predatorWiggle || 0.2) * (wiggleMult - 1.0) * (dt * 60);
+            this.swimPhase += additionalWiggle;
         }
-        this.spine.resolve(this.pos);
-        
-        // Update swim phase for wiggle animation (more aggressive when attacking)
-        const wiggleMult = this.state === 'ATTACKING' ? params.predatorAttackWaveMult : 1.0;
-        this.swimPhase += (0.15 + (speed * 0.05)) * (params.predatorWiggle || 0.2) * wiggleMult * scale;
         
         // Update trail system
         this.updateTrail(dt);
     }
     
     stayInBounds() {
-        const margin = params.predatorBoundaryMargin;
-        let desired = null;
-        
-        if (this.pos.x < margin) desired = new Vector(this.maxSpeed, this.vel.y);
-        else if (this.pos.x > width - margin) desired = new Vector(-this.maxSpeed, this.vel.y);
-        if (this.pos.y < margin) desired = new Vector(this.vel.x, this.maxSpeed);
-        else if (this.pos.y > height - margin) desired = new Vector(this.vel.x, -this.maxSpeed);
-        
-        if (desired) {
-            desired.normalize();
-            desired.mult(this.maxSpeed);
-            let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
-            steer.limit(this.maxForce * 2);
-            this.applyForce(steer);
-        }
+        const margin = params.predatorBoundaryMargin || 100;
+        super.stayInBounds(margin, 2);
     }
     
     updateTrail(dt) {

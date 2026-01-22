@@ -1,6 +1,7 @@
 // Crocodile class - apex predator that hunts predator fish
 // Redesigned with kinematic chain spine system
 
+import { Entity } from './Entity.js';
 import { Vector } from '../utils/Vector.js';
 import { Chain } from '../utils/Chain.js';
 import { params, CULL_MARGIN } from '../config.js';
@@ -12,18 +13,20 @@ const PI = Math.PI;
 const TWO_PI = Math.PI * 2;
 const HALF_PI = Math.PI / 2;
 
-export class Crocodile {
+export class Crocodile extends Entity {
     constructor(x, y) {
-        this.pos = new Vector(x, y);
-        this.vel = new Vector(rand(-0.3, 0.3), rand(-0.3, 0.3));
-        this.acc = new Vector(0, 0);
+        super(x, y);
         
+        // Override base class initialization with Crocodile-specific values
         this.size = rand(params.crocodileSizeMin, params.crocodileSizeMax);
         this.scale = this.size / 20; // Scale factor matching sample code
         this.baseSpeed = params.crocodileBaseSpeed;
         this.maxSpeed = this.baseSpeed;
         this.maxForce = params.crocodileMaxForceLurking;
         this.currentSpeed = params.crocodileBaseSpeed;
+        
+        // Initialize velocity
+        this.vel = new Vector(rand(-0.3, 0.3), rand(-0.3, 0.3));
         
         // Kinematic chain spine system
         const linkSize = params.crocodileLinkSize * (this.size / 20); // Scale with size
@@ -91,10 +94,6 @@ export class Crocodile {
             this.colorMain = '#f0e6d2';
             this.colorDark = '#dcbfa3';
         }
-    }
-    
-    applyForce(force) {
-        this.acc.add(force);
     }
     
     seek(target, speedMult = 1) {
@@ -374,26 +373,13 @@ export class Crocodile {
     }
     
     stayInBounds() {
-        const margin = params.crocodileBoundaryMargin;
-        let desired = null;
+        const margin = params.crocodileBoundaryMargin || 100;
+        super.stayInBounds(margin, 2);
         
-        if (this.pos.x < margin) desired = new Vector(this.maxSpeed, this.vel.y);
-        else if (this.pos.x > width - margin) desired = new Vector(-this.maxSpeed, this.vel.y);
-        if (this.pos.y < margin) desired = new Vector(this.vel.x, this.maxSpeed);
-        else if (this.pos.y > height - margin) desired = new Vector(this.vel.x, -this.maxSpeed);
-        
-        if (desired) {
-            desired.normalize();
-            desired.mult(this.maxSpeed);
-            let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
-            steer.limit(this.maxForce * 2);
-            this.applyForce(steer);
-            
-            // Wake up if floating
-            if (this.subState === 'IDLE') {
-                this.subState = 'SWIM';
-                this.subStateTimer = rand(200, 400);
-            }
+        // Wake up if floating (crocodile-specific)
+        if (this.subState === 'IDLE') {
+            this.subState = 'SWIM';
+            this.subStateTimer = rand(200, 400);
         }
     }
     

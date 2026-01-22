@@ -1,5 +1,6 @@
 // Turtle class - slow swimming creature that eats food and avoids predators
 
+import { Entity } from './Entity.js';
 import { Vector } from '../utils/Vector.js';
 import { params, CULL_MARGIN } from '../config.js';
 import { rand, dist, isInView, width, height } from '../utils/helpers.js';
@@ -12,16 +13,18 @@ export function setAddRippleFunction(fn) {
     addRippleFn = fn;
 }
 
-export class Turtle {
+export class Turtle extends Entity {
     constructor(x, y) {
-        this.pos = new Vector(x, y);
-        this.vel = new Vector(rand(-0.5, 0.5), rand(-0.5, 0.5));
-        this.acc = new Vector(0, 0);
+        super(x, y);
         
+        // Override base class initialization with Turtle-specific values
         this.size = rand(params.turtleSizeMin, params.turtleSizeMax);
         this.baseSpeed = rand(params.turtleBaseSpeedMin, params.turtleBaseSpeedMax);
         this.maxSpeed = this.baseSpeed * params.speedScale;
         this.maxForce = params.turtleTurnForce;
+        
+        // Initialize velocity
+        this.vel = new Vector(rand(-0.5, 0.5), rand(-0.5, 0.5));
         
         // Swimming animation
         this.swimTimer = Math.random() * 100;
@@ -54,19 +57,6 @@ export class Turtle {
         this.heartBeat = 0;
     }
     
-    seek(target) {
-        let desired = new Vector(target.x - this.pos.x, target.y - this.pos.y);
-        desired.normalize();
-        desired.mult(this.maxSpeed);
-        let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
-        steer.limit(this.maxForce);
-        return steer;
-    }
-    
-    applyForce(force) {
-        this.acc.add(force);
-    }
-    
     behaviors(foodList, followTarget, dt = 1/60) {
         const scale = dt * 60;
         
@@ -88,21 +78,11 @@ export class Turtle {
         }
         
         // Boundary avoidance
-        let desired = null;
-        const margin = 100;
+        this.stayInBounds(100, 2);
         
-        if (this.pos.x < margin) desired = new Vector(this.maxSpeed, this.vel.y);
-        else if (this.pos.x > width - margin) desired = new Vector(-this.maxSpeed, this.vel.y);
-        if (this.pos.y < margin) desired = new Vector(this.vel.x, this.maxSpeed);
-        else if (this.pos.y > height - margin) desired = new Vector(this.vel.x, -this.maxSpeed);
-        
-        if (desired) {
-            desired.normalize();
-            desired.mult(this.maxSpeed);
-            let steer = new Vector(desired.x - this.vel.x, desired.y - this.vel.y);
-            steer.limit(this.maxForce * 2);
-            this.applyForce(steer);
-        } else {
+        // Only wander if not at boundary
+        if (this.pos.x >= 100 && this.pos.x <= width - 100 && 
+            this.pos.y >= 100 && this.pos.y <= height - 100) {
             // Gentle wander
             if (Math.random() < 0.03) {
                 let wander = new Vector(rand(-1, 1), rand(-1, 1));
@@ -121,8 +101,7 @@ export class Turtle {
             
             // Only follow if not too close (to avoid jittering)
             if (d > 50) {
-                const targetPos = { x: followTarget.x, y: followTarget.y };
-                let seekForce = this.seek(targetPos);
+                let seekForce = this.seek(followTarget);
                 seekForce.mult(2.0); // Strong follow
                 this.applyForce(seekForce);
                 following = true;
@@ -193,8 +172,7 @@ export class Turtle {
                 }
                 
                 if (closestFood) {
-                    const targetPos = { x: closestFood.pos.x, y: closestFood.pos.y };
-                    let seekForce = this.seek(targetPos);
+                    let seekForce = this.seek(closestFood.pos);
                     seekForce.mult(1.5);
                     this.applyForce(seekForce);
                     
@@ -243,25 +221,8 @@ export class Turtle {
         
         this.behaviors(foodList, followTarget, dt);
         
-        // Physics update
-        this.vel.x += this.acc.x * scale;
-        this.vel.y += this.acc.y * scale;
-        this.vel.limit(this.maxSpeed);
-        
-        this.pos.x += this.vel.x * scale;
-        this.pos.y += this.vel.y * scale;
-        this.acc.mult(0);
-        
-        // Update rotation to face movement direction
-        if (this.vel.mag() > 0.1) {
-            let targetRotation = Math.atan2(this.vel.y, this.vel.x);
-            // Smooth rotation
-            let rotDiff = targetRotation - this.rotation;
-            // Normalize to -PI to PI
-            while (rotDiff > Math.PI) rotDiff -= Math.PI * 2;
-            while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
-            this.rotation += rotDiff * 0.1 * scale;
-        }
+        // Physics update - call parent update which handles physics and rotation
+        super.update(dt);
         
         // Swimming animation - faster leg movement when swimming faster
         const swimSpeed = this.vel.mag();

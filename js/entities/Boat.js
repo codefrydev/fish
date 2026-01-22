@@ -1,8 +1,9 @@
 // Boat class - rowboat with animated oars and wake effects
 
+import { Entity } from './Entity.js';
 import { Vector } from '../utils/Vector.js';
 import { params, CULL_MARGIN } from '../config.js';
-import { isInView, width, height, rand } from '../utils/helpers.js';
+import { isInView, width, height, rand, lerp } from '../utils/helpers.js';
 import { ripplePool } from '../systems/ObjectPool.js';
 import { fishGrid } from '../utils/SpatialGrid.js';
 
@@ -12,23 +13,21 @@ export function setAddRippleFunction(fn) {
     addRippleFn = fn;
 }
 
-// Helper function for linear interpolation
-function lerp(start, end, amt) {
-    return (1 - amt) * start + amt * end;
-}
-
-export class Boat {
+export class Boat extends Entity {
     constructor(x, y, wakeRipplesArray) {
-        this.pos = new Vector(x, y);
-        this.vel = new Vector(0, 0);
-        this.acc = new Vector(0, 0);
+        super(x, y);
         
+        // Boat-specific properties
         this.angle = -Math.PI / 2; // Facing up initially
         this.speed = 0;
         this.maxSpeed = params.boatMaxSpeed;
         this.rotationSpeed = params.boatRotationSpeed;
         this.acceleration = params.boatAcceleration;
         this.friction = params.boatFriction;
+        
+        // Override Entity's maxSpeed and maxForce for boat physics
+        this.maxSpeed = params.boatMaxSpeed;
+        this.maxForce = params.boatAcceleration;
         
         // Oar animation
         this.oarPhase = 0;
