@@ -240,9 +240,6 @@ export class Koi {
         // Track current head angle to prevent sudden 360 rotations
         this.currentHeadAngle = simplifyAngle(this.vel.heading());
         
-        // Base widths for body shape (scaled by fish size)
-        this.baseWidths = [68, 81, 84, 83, 77, 64, 51, 38, 32, 19];
-        
         // Swim phase for wiggle animation
         this.swimPhase = rand(0, TWO_PI);
         this.noiseOffset = rand(0, 1000);
@@ -313,7 +310,7 @@ export class Koi {
     }
 
     getDynamicWidth(i) {
-        const baseW = this.baseWidths[i] !== undefined ? this.baseWidths[i] : 10;
+        const baseW = params.fishShape[i] !== undefined ? params.fishShape[i] : 10;
         return baseW * this.scale * 0.6 * (params.bodyWidth || 0.4);
     }
 

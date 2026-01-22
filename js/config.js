@@ -11,6 +11,12 @@ export const params = {
     finScale: 1.0, 
     speedScale: 1.0,
     bodyWidth: 0.4,
+    
+    // Fish procedural shape (width profile along spine from head to tail)
+    // 12 points defining the silhouette width at each spine index
+    fishShape: [
+        68, 81, 84, 83, 77, 64, 51, 38, 32, 19, 10, 5
+    ],
     spotSize: 0.7,
     wiggle: 0.2,
     pattern: 'Random', 
@@ -29,8 +35,8 @@ export const params = {
     pebbleColors: ["#5a4d33", "#8c7b60", "#2f2818"], 
     padDensity: 15,
     padFormation: 'random',
-    padSizeMin: 25,
-    padSizeMax: 55,
+    padSizeMin: 16,
+    padSizeMax: 36,
     padSplitSize: 0.5, 
     padVeinCount: 5,   
     padColor: "#4caf50", 
@@ -71,8 +77,8 @@ export const params = {
     
     // Turtle settings
     turtleCount: 3,
-    turtleSizeMin: 12,
-    turtleSizeMax: 18,
+    turtleSizeMin: 8,
+    turtleSizeMax: 12,
     turtleBaseSpeedMin: 0.5,
     turtleBaseSpeedMax: 0.8,
     turtleTurnForce: 0.02,
@@ -100,8 +106,8 @@ export const params = {
     
     // Crocodile settings
     crocodileCount: 1,
-    crocodileSizeMin: 18,
-    crocodileSizeMax: 26,
+    crocodileSizeMin: 5,
+    crocodileSizeMax: 10,
     crocodileBaseSpeed: 0.4,
     crocodileDetectionRange: 200,
     crocodileAttackSpeed: 2.5,
@@ -111,6 +117,29 @@ export const params = {
     crocodileBodyColor: "#4a6b38",
     crocodileBellyColor: "#8b9b7a",
     crocodileEyeColor: "#e8c547",
+    
+    // Crocodile procedural shape (width profile along spine from snout to tail)
+    // 20 points defining the silhouette width at each spine index
+    crocodileShape: [
+        5.975754408951823, 7.545984861131567, 8.190859626168733, 
+        20.562087216277387, 9.696813683119922, 15.947738137180934, 
+        20.887116650398866, 22.666666666666664, 21.78109242146566, 
+        17.671981674063108, 12.730294773693004, 9.501465160071245, 
+        8.713637641006466, 8.307182336956489, 6.324615351079946, 
+        4.5746135332625855, 2.6666666666666714, 1.8674346018212138, 
+        0.9761347204030992, 0
+    ],
+    
+    // Crocodile kinematic chain settings
+    crocodileSpineCount: 22,
+    crocodileLinkSize: 12,
+    crocodileAngleConstraint: Math.PI / 3, // 60 degrees
+    crocodileWiggle: 0.2,
+    crocodilePattern: 'Mixed', // 'Swamp', 'Mud', 'Saltwater', 'Black', 'Albino', 'Mixed'
+    crocodileSeparationDistance: 120,
+    scuteAlpha: 0.8, // Alpha for scute details
+    limbSize: 0.6, // Limb size multiplier
+    eyeSize: 1.0, // Eye size multiplier
     
     // === ADVANCED SETTINGS ===
     

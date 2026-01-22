@@ -209,9 +209,6 @@ export class PredatorFish {
         this.spine = new Chain(this.pos, spineCount, linkSize, PI / 3, trailAngle);
         this.spineLength = spineCount;
         
-        // Base widths for body shape (slightly different proportions for predator)
-        this.baseWidths = [70, 85, 88, 87, 80, 68, 55, 42, 35, 22];
-        
         // Swim phase for wiggle animation
         this.swimPhase = rand(0, TWO_PI);
         this.swimTimer = Math.random() * params.fishInitialSwimTimer;
@@ -232,7 +229,7 @@ export class PredatorFish {
     }
     
     getDynamicWidth(i) {
-        const baseW = this.baseWidths[i] !== undefined ? this.baseWidths[i] : 10;
+        const baseW = params.fishShape[i] !== undefined ? params.fishShape[i] : 10;
         return baseW * this.scale * 0.6 * (params.predatorBodyWidth || 0.4);
     }
     

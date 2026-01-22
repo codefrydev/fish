@@ -224,6 +224,12 @@
             <option value="Orenji">Orenji (Solid Orange)</option>
             <option value="Utsuri">Utsuri (Black/Yellow)</option>
         </select>
+        
+        <hr>
+        <div class="header" style="color: #81c784; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 700; margin-top: 4px;">Body Profile Curve</div>
+        <canvas id="fish-shape-curve" width="220" height="120" style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; cursor: crosshair; margin-bottom: 4px; touch-action: none; width: 100%;"></canvas>
+        <div style="font-size: 10px; color: #aaa; text-align: center; margin-bottom: 8px;">Head &nbsp;&mdash;&nbsp; Body &nbsp;&mdash;&nbsp; Tail</div>
+        <button class="btn" id="btn-copy-fish-shape" style="background: #81c784; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; transition: background 0.2s;">Copy Shape Array</button>
     </div>
     
     <h3>Reproduction</h3>
@@ -338,8 +344,8 @@
         <div class="dual-range" data-min-id="inp-crocodileSizeMin" data-max-id="inp-crocodileSizeMax">
             <div class="dual-range-track"></div>
             <div class="dual-range-fill"></div>
-            <input type="range" id="inp-crocodileSizeMin" min="15" max="35" step="1">
-            <input type="range" id="inp-crocodileSizeMax" min="15" max="35" step="1">
+            <input type="range" id="inp-crocodileSizeMin" min="5" max="10" step="1">
+            <input type="range" id="inp-crocodileSizeMax" min="5" max="10" step="1">
         </div>
         
         <div class="control-label">Base Speed <span id="val-crocodileBaseSpeed" class="val-display"></span></div>
@@ -362,6 +368,34 @@
         
         <div class="control-label">Eye Color</div>
         <input type="color" id="inp-crocodileEyeColor">
+        
+        <div class="control-label">Pattern</div>
+        <select id="inp-crocodilePattern">
+            <option value="Swamp">Swamp Green</option>
+            <option value="Mud">Mud Brown</option>
+            <option value="Saltwater">Saltwater Grey</option>
+            <option value="Black">Black Caiman</option>
+            <option value="Albino">Albino</option>
+            <option value="Mixed" selected>Mixed</option>
+        </select>
+        
+        <div class="control-label">Wiggle <span id="val-crocodileWiggle" class="val-display"></span></div>
+        <input type="range" id="inp-crocodileWiggle" min="0.0" max="3.0" step="0.1">
+        
+        <div class="control-label">Body Width <span id="val-crocodileBodyWidth" class="val-display"></span></div>
+        <input type="range" id="inp-crocodileBodyWidth" min="0.1" max="2.0" step="0.1">
+        
+        <div class="control-label">Limb Size <span id="val-limbSize" class="val-display"></span></div>
+        <input type="range" id="inp-limbSize" min="0.5" max="2.0" step="0.1">
+        
+        <div class="control-label">Eye Size <span id="val-eyeSize" class="val-display"></span></div>
+        <input type="range" id="inp-eyeSize" min="0.5" max="3.0" step="0.1">
+        
+        <hr>
+        <div class="header" style="color: #558b2f; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 700; margin-top: 4px;">Profile Curve</div>
+        <canvas id="crocodile-shape-curve" width="220" height="120" style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; cursor: crosshair; margin-bottom: 4px; touch-action: none; width: 100%;"></canvas>
+        <div style="font-size: 10px; color: #aaa; text-align: center; margin-bottom: 8px;">Snout &nbsp;&mdash;&nbsp; Head &nbsp;&mdash;&nbsp; Body &nbsp;&mdash;&nbsp; Tail</div>
+        <button class="btn" id="btn-copy-crocodile-shape" style="background: #558b2f; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; transition: background 0.2s;">Copy Shape Array</button>
         
         <div style="margin-top: 8px; font-family: monospace; font-size: 11px; color: #6b8e4e;">
             <div>Hunts: <span id="stat-croc-hunts">0</span> | Kills: <span id="stat-croc-kills">0</span></div>

@@ -318,7 +318,7 @@ export function animate(currentTime, addRippleFn) {
     
     // Update and draw crocodiles (apex predators, also under lily pads)
     crocodiles.forEach(c => {
-        c.update(predators, dt);
+        c.update(predators, crocodiles, dt);
         c.draw(ctx);
     });
     

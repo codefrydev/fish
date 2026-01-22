@@ -108,6 +108,7 @@ export function initUI(callbacks) {
         'crocodileCount', 'crocodileSizeMin', 'crocodileSizeMax',
         'crocodileBaseSpeed', 'crocodileHuntSuccessRate', 'crocodileDetectionRange',
         'crocodileAttackSpeed', 'crocodileRestTime',
+        'crocodileWiggle', 'crocodileBodyWidth', 'limbSize', 'eyeSize',
         'turtleCount', 'turtleSizeMin', 'turtleSizeMax',
         'turtleBaseSpeedMin', 'turtleBaseSpeedMax', 'turtleTurnForce',
         'turtleDetectionRange', 'turtleFleeForceMultiplier', 'turtleFoodSeekRange',
@@ -237,6 +238,7 @@ export function initUI(callbacks) {
     }
     
     const patternSelect = document.getElementById('inp-pattern');
+    const crocodilePatternSelect = document.getElementById('inp-crocodilePattern');
     if (patternSelect) {
         patternSelect.value = params.pattern || 'Random';
         patternSelect.addEventListener('change', e => {
@@ -247,6 +249,335 @@ export function initUI(callbacks) {
                     if (fish.setupPattern) fish.setupPattern();
                 });
             }
+        });
+    }
+    
+    if (crocodilePatternSelect) {
+        crocodilePatternSelect.value = params.crocodilePattern || 'Mixed';
+        crocodilePatternSelect.addEventListener('change', e => {
+            params.crocodilePattern = e.target.value;
+            // Reinitialize crocodiles to update appearances
+            if (initCrocodilesCallback) {
+                initCrocodilesCallback();
+            }
+        });
+    }
+    
+    // Crocodile shape curve editor (from sample code)
+    const curveCanvas = document.getElementById('crocodile-shape-curve');
+    if (curveCanvas) {
+        const curveCtx = curveCanvas.getContext('2d');
+        let activePoint = -1;
+        const MAX_VAL = 80;
+        
+        function drawCurveEditor() {
+            const w = curveCanvas.width;
+            const h = curveCanvas.height;
+            const len = params.crocodileShape.length;
+            
+            curveCtx.clearRect(0, 0, w, h);
+            
+            // Grid lines
+            curveCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+            curveCtx.lineWidth = 1;
+            
+            for(let i=0; i<len; i++) {
+                const x = (i / (len - 1)) * w;
+                curveCtx.beginPath();
+                curveCtx.moveTo(x, 0); curveCtx.lineTo(x, h);
+                curveCtx.stroke();
+            }
+            curveCtx.beginPath(); 
+            curveCtx.moveTo(0, h); curveCtx.lineTo(w, h);
+            curveCtx.stroke();
+            
+            // Filled Area under curve
+            curveCtx.fillStyle = 'rgba(85, 139, 47, 0.2)';
+            curveCtx.beginPath();
+            curveCtx.moveTo(0, h);
+            for(let i=0; i<len; i++) {
+                const x = (i / (len - 1)) * w;
+                const val = params.crocodileShape[i];
+                const y = h - (val / MAX_VAL) * h;
+                curveCtx.lineTo(x, y);
+            }
+            curveCtx.lineTo(w, h);
+            curveCtx.fill();
+            
+            // The Line
+            curveCtx.strokeStyle = '#558b2f';
+            curveCtx.lineWidth = 2;
+            curveCtx.beginPath();
+            for(let i=0; i<len; i++) {
+                const x = (i / (len - 1)) * w;
+                const val = params.crocodileShape[i];
+                const y = h - (val / MAX_VAL) * h;
+                if(i===0) curveCtx.moveTo(x, y);
+                else curveCtx.lineTo(x, y);
+            }
+            curveCtx.stroke();
+            
+            // Points
+            for(let i=0; i<len; i++) {
+                const x = (i / (len - 1)) * w;
+                const val = params.crocodileShape[i];
+                const y = h - (val / MAX_VAL) * h;
+                
+                const isHovered = (i === activePoint);
+                
+                curveCtx.fillStyle = isHovered ? '#fff' : '#8fba92';
+                const r = isHovered ? 4 : 2.5;
+                
+                curveCtx.beginPath();
+                curveCtx.arc(x, y, r, 0, Math.PI * 2);
+                curveCtx.fill();
+                
+                if(i===0 || i===3 || i===10) {
+                   curveCtx.fillStyle = 'rgba(255,255,255,0.3)'; 
+                   curveCtx.beginPath(); curveCtx.arc(x, y, r+2, 0, Math.PI * 2); curveCtx.fill();
+                }
+            }
+        }
+        
+        function getMousePos(e) {
+            const rect = curveCanvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+        
+        function getIndexFromX(x) {
+            const w = curveCanvas.width;
+            const len = params.crocodileShape.length;
+            let i = Math.round((x / w) * (len - 1));
+            return Math.max(0, Math.min(len - 1, i));
+        }
+        
+        function applySmoothDeformation(centerIdx, targetVal) {
+            const currentVal = params.crocodileShape[centerIdx];
+            const delta = targetVal - currentVal;
+            const radius = 3;
+            
+            for(let i = -radius; i <= radius; i++) {
+                const idx = centerIdx + i;
+                if(idx >= 0 && idx < params.crocodileShape.length) {
+                    const weight = Math.exp(-(i * i) / (2 * 1.0));
+                    let newVal = params.crocodileShape[idx] + (delta * weight);
+                    newVal = Math.max(0, Math.min(MAX_VAL, newVal));
+                    params.crocodileShape[idx] = newVal;
+                }
+            }
+        }
+
+        curveCanvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e);
+            const idx = getIndexFromX(pos.x);
+            activePoint = idx;
+            
+            let val = MAX_VAL - (pos.y / curveCanvas.height) * MAX_VAL;
+            val = Math.max(0, Math.min(MAX_VAL, val));
+            
+            applySmoothDeformation(activePoint, val);
+            drawCurveEditor();
+        });
+        
+        window.addEventListener('mousemove', (e) => {
+            if(activePoint !== -1) {
+                const pos = getMousePos(e);
+                let val = MAX_VAL - (pos.y / curveCanvas.height) * MAX_VAL;
+                val = Math.max(0, Math.min(MAX_VAL, val));
+                applySmoothDeformation(activePoint, val);
+                drawCurveEditor();
+            }
+        });
+        
+        window.addEventListener('mouseup', () => {
+            activePoint = -1;
+            drawCurveEditor();
+        });
+
+        drawCurveEditor();
+    }
+    
+    // Fish shape curve editor (similar to crocodile)
+    const fishCurveCanvas = document.getElementById('fish-shape-curve');
+    if (fishCurveCanvas) {
+        const fishCurveCtx = fishCurveCanvas.getContext('2d');
+        let activeFishPoint = -1;
+        const FISH_MAX_VAL = 100;
+        
+        function drawFishCurveEditor() {
+            const w = fishCurveCanvas.width;
+            const h = fishCurveCanvas.height;
+            const len = params.fishShape.length;
+            
+            fishCurveCtx.clearRect(0, 0, w, h);
+            
+            // Grid lines
+            fishCurveCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+            fishCurveCtx.lineWidth = 1;
+            
+            for(let i=0; i<len; i++) {
+                const x = (i / (len - 1)) * w;
+                fishCurveCtx.beginPath();
+                fishCurveCtx.moveTo(x, 0); fishCurveCtx.lineTo(x, h);
+                fishCurveCtx.stroke();
+            }
+            fishCurveCtx.beginPath(); 
+            fishCurveCtx.moveTo(0, h); fishCurveCtx.lineTo(w, h);
+            fishCurveCtx.stroke();
+            
+            // Filled Area under curve
+            fishCurveCtx.fillStyle = 'rgba(129, 199, 132, 0.2)';
+            fishCurveCtx.beginPath();
+            fishCurveCtx.moveTo(0, h);
+            for(let i=0; i<len; i++) {
+                const x = (i / (len - 1)) * w;
+                const val = params.fishShape[i];
+                const y = h - (val / FISH_MAX_VAL) * h;
+                fishCurveCtx.lineTo(x, y);
+            }
+            fishCurveCtx.lineTo(w, h);
+            fishCurveCtx.fill();
+            
+            // The Line
+            fishCurveCtx.strokeStyle = '#81c784';
+            fishCurveCtx.lineWidth = 2;
+            fishCurveCtx.beginPath();
+            for(let i=0; i<len; i++) {
+                const x = (i / (len - 1)) * w;
+                const val = params.fishShape[i];
+                const y = h - (val / FISH_MAX_VAL) * h;
+                if(i===0) fishCurveCtx.moveTo(x, y);
+                else fishCurveCtx.lineTo(x, y);
+            }
+            fishCurveCtx.stroke();
+            
+            // Points
+            for(let i=0; i<len; i++) {
+                const x = (i / (len - 1)) * w;
+                const val = params.fishShape[i];
+                const y = h - (val / FISH_MAX_VAL) * h;
+                
+                const isHovered = (i === activeFishPoint);
+                
+                fishCurveCtx.fillStyle = isHovered ? '#fff' : '#a5d6a7';
+                const r = isHovered ? 4 : 2.5;
+                
+                fishCurveCtx.beginPath();
+                fishCurveCtx.arc(x, y, r, 0, Math.PI * 2);
+                fishCurveCtx.fill();
+                
+                if(i===0 || i===3 || i===9) {
+                   fishCurveCtx.fillStyle = 'rgba(255,255,255,0.3)'; 
+                   fishCurveCtx.beginPath(); fishCurveCtx.arc(x, y, r+2, 0, Math.PI * 2); fishCurveCtx.fill();
+                }
+            }
+        }
+        
+        function getFishMousePos(e) {
+            const rect = fishCurveCanvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+        
+        function getFishIndexFromX(x) {
+            const w = fishCurveCanvas.width;
+            const len = params.fishShape.length;
+            let i = Math.round((x / w) * (len - 1));
+            return Math.max(0, Math.min(len - 1, i));
+        }
+        
+        function applyFishSmoothDeformation(centerIdx, targetVal) {
+            const currentVal = params.fishShape[centerIdx];
+            const delta = targetVal - currentVal;
+            const radius = 3;
+            
+            for(let i = -radius; i <= radius; i++) {
+                const idx = centerIdx + i;
+                if(idx >= 0 && idx < params.fishShape.length) {
+                    const weight = Math.exp(-(i * i) / (2 * 1.0));
+                    let newVal = params.fishShape[idx] + (delta * weight);
+                    newVal = Math.max(0, Math.min(FISH_MAX_VAL, newVal));
+                    params.fishShape[idx] = newVal;
+                }
+            }
+        }
+
+        fishCurveCanvas.addEventListener('mousedown', (e) => {
+            const pos = getFishMousePos(e);
+            const idx = getFishIndexFromX(pos.x);
+            activeFishPoint = idx;
+            
+            let val = FISH_MAX_VAL - (pos.y / fishCurveCanvas.height) * FISH_MAX_VAL;
+            val = Math.max(0, Math.min(FISH_MAX_VAL, val));
+            
+            applyFishSmoothDeformation(activeFishPoint, val);
+            drawFishCurveEditor();
+        });
+        
+        window.addEventListener('mousemove', (e) => {
+            if(activeFishPoint !== -1) {
+                const pos = getFishMousePos(e);
+                let val = FISH_MAX_VAL - (pos.y / fishCurveCanvas.height) * FISH_MAX_VAL;
+                val = Math.max(0, Math.min(FISH_MAX_VAL, val));
+                applyFishSmoothDeformation(activeFishPoint, val);
+                drawFishCurveEditor();
+            }
+        });
+        
+        window.addEventListener('mouseup', () => {
+            activeFishPoint = -1;
+            drawFishCurveEditor();
+        });
+
+        drawFishCurveEditor();
+    }
+    
+    // Copy shape array button
+    const copyShapeBtn = document.getElementById('btn-copy-crocodile-shape');
+    if (copyShapeBtn) {
+        copyShapeBtn.addEventListener('click', () => {
+            const str = JSON.stringify(params.crocodileShape);
+            const textArea = document.createElement("textarea");
+            textArea.value = str;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if(successful) {
+                    alert("Shape array copied to clipboard!");
+                }
+            } catch (err) {
+                console.error('Unable to copy', err);
+            }
+            document.body.removeChild(textArea);
+        });
+    }
+    
+    // Copy fish shape array button
+    const copyFishShapeBtn = document.getElementById('btn-copy-fish-shape');
+    if (copyFishShapeBtn) {
+        copyFishShapeBtn.addEventListener('click', () => {
+            const str = JSON.stringify(params.fishShape);
+            const textArea = document.createElement("textarea");
+            textArea.value = str;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                if(successful) {
+                    alert("Shape array copied to clipboard!");
+                }
+            } catch (err) {
+                console.error('Unable to copy', err);
+            }
+            document.body.removeChild(textArea);
         });
     }
     
