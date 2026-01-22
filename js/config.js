@@ -3,8 +3,8 @@
 
 export const params = {
     fishCount: 20,
-    sizeMin: 1,
-    sizeMax: 3.5,
+    sizeMin: 2.2,
+    sizeMax: 4.8,
     spineCount: 12,
     fatness: 1.0,
     tailTaper: 1.5,
@@ -100,8 +100,8 @@ export const params = {
     
     // Crocodile settings
     crocodileCount: 1,
-    crocodileSizeMin: 22,
-    crocodileSizeMax: 30,
+    crocodileSizeMin: 18,
+    crocodileSizeMax: 26,
     crocodileBaseSpeed: 0.4,
     crocodileDetectionRange: 200,
     crocodileAttackSpeed: 2.5,
