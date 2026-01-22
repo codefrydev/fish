@@ -198,12 +198,32 @@
         <div class="dual-range" data-min-id="inp-sizeMin" data-max-id="inp-sizeMax">
             <div class="dual-range-track"></div>
             <div class="dual-range-fill"></div>
-            <input type="range" id="inp-sizeMin" min="4" max="60" step="1">
-            <input type="range" id="inp-sizeMax" min="4" max="60" step="1">
+            <input type="range" id="inp-sizeMin" min="0.5" max="10" step="0.1">
+            <input type="range" id="inp-sizeMax" min="0.5" max="10" step="0.1">
         </div>
 
         <div class="control-label">Fin Scale <span id="val-finScale" class="val-display"></span></div>
         <input type="range" id="inp-finScale" min="0.5" max="2.0" step="0.1">
+        
+        <div class="control-label">Body Width <span id="val-bodyWidth" class="val-display"></span></div>
+        <input type="range" id="inp-bodyWidth" min="0.1" max="2.0" step="0.01">
+        
+        <div class="control-label">Spot Size <span id="val-spotSize" class="val-display"></span></div>
+        <input type="range" id="inp-spotSize" min="0.0" max="3.0" step="0.1">
+        
+        <div class="control-label">Wiggle Speed <span id="val-wiggle" class="val-display"></span></div>
+        <input type="range" id="inp-wiggle" min="0.0" max="5.0" step="0.1">
+        
+        <div class="control-label">Pattern Type</div>
+        <select id="inp-pattern">
+            <option value="Random">Random Mix</option>
+            <option value="Kohaku">Kohaku (Red/White)</option>
+            <option value="Sanke">Sanke (Tri-color)</option>
+            <option value="Showa">Showa (Black Base)</option>
+            <option value="Ogon">Ogon (Solid Gold)</option>
+            <option value="Orenji">Orenji (Solid Orange)</option>
+            <option value="Utsuri">Utsuri (Black/Yellow)</option>
+        </select>
     </div>
     
     <h3>Reproduction</h3>
@@ -279,9 +299,15 @@
         <div class="dual-range" data-min-id="inp-predatorSizeMin" data-max-id="inp-predatorSizeMax">
             <div class="dual-range-track"></div>
             <div class="dual-range-fill"></div>
-            <input type="range" id="inp-predatorSizeMin" min="15" max="70" step="1">
-            <input type="range" id="inp-predatorSizeMax" min="15" max="70" step="1">
+            <input type="range" id="inp-predatorSizeMin" min="0.5" max="5" step="0.1">
+            <input type="range" id="inp-predatorSizeMax" min="0.5" max="5" step="0.1">
         </div>
+        
+        <div class="control-label">Body Width <span id="val-predatorBodyWidth" class="val-display"></span></div>
+        <input type="range" id="inp-predatorBodyWidth" min="0.1" max="2.0" step="0.01">
+        
+        <div class="control-label">Wiggle Speed <span id="val-predatorWiggle" class="val-display"></span></div>
+        <input type="range" id="inp-predatorWiggle" min="0.0" max="5.0" step="0.1">
         
         <div class="control-label">Hunt Success <span id="val-predatorHuntSuccessRate" class="val-display"></span></div>
         <input type="range" id="inp-predatorHuntSuccessRate" min="0" max="1.0" step="0.05">
@@ -519,6 +545,15 @@
             
             <div class="control-label">Initial Swim Timer <span id="val-fishInitialSwimTimer" class="val-display"></span></div>
             <input type="range" id="inp-fishInitialSwimTimer" min="10" max="500" step="10">
+            
+            <div class="control-label">Body Width <span id="val-bodyWidth-adv" class="val-display"></span></div>
+            <input type="range" id="inp-bodyWidth-adv" min="0.1" max="2.0" step="0.01">
+            
+            <div class="control-label">Spot Size <span id="val-spotSize-adv" class="val-display"></span></div>
+            <input type="range" id="inp-spotSize-adv" min="0.0" max="3.0" step="0.1">
+            
+            <div class="control-label">Wiggle Speed <span id="val-wiggle-adv" class="val-display"></span></div>
+            <input type="range" id="inp-wiggle-adv" min="0.0" max="5.0" step="0.1">
         </div>
         
         <!-- Food Spawning Advanced -->
@@ -600,6 +635,16 @@
             
             <div class="control-label">Boundary Margin <span id="val-predatorBoundaryMargin" class="val-display"></span></div>
             <input type="range" id="inp-predatorBoundaryMargin" min="20" max="200" step="10">
+        </div>
+        
+        <!-- Predator Appearance -->
+        <h4 style="margin: 12px 0 6px 0; font-size: 11px; color: #ff6b6b; text-transform: uppercase; letter-spacing: 0.5px;">Predator Appearance</h4>
+        <div class="control-group">
+            <div class="control-label">Body Width <span id="val-predatorBodyWidth-adv" class="val-display"></span></div>
+            <input type="range" id="inp-predatorBodyWidth-adv" min="0.1" max="2.0" step="0.01">
+            
+            <div class="control-label">Wiggle Speed <span id="val-predatorWiggle-adv" class="val-display"></span></div>
+            <input type="range" id="inp-predatorWiggle-adv" min="0.0" max="5.0" step="0.1">
         </div>
         
         <!-- Predator Shading -->

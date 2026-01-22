@@ -89,6 +89,7 @@ export function initUI(callbacks) {
     
     const inputs = [
         'fishCount', 'sizeMin', 'sizeMax', 'fatness', 'finScale',
+        'bodyWidth', 'spotSize', 'wiggle',
         'speedScale', 'waveSpeedBase', 'waveAmpMax', 'distConstraint',
         'fishJumpChance', 'fishJumpFleeChance', 'fishJumpExcitedChance',
         'fishJumpCooldown', 'fishJumpHeight', 'fishJumpDistance',
@@ -101,6 +102,7 @@ export function initUI(callbacks) {
         'foodSpawnRate', 'foodSize',
         'birthChance', 'maxFishCount', 'birthCooldown',
         'predatorCount', 'predatorSizeMin', 'predatorSizeMax',
+        'predatorBodyWidth', 'predatorWiggle',
         'predatorHuntSuccessRate', 'predatorDetectionRange',
         'predatorAttackSpeed', 'predatorRestTime',
         'crocodileCount', 'crocodileSizeMin', 'crocodileSizeMax',
@@ -233,6 +235,63 @@ export function initUI(callbacks) {
             params.birthMode = e.target.value;
         });
     }
+    
+    const patternSelect = document.getElementById('inp-pattern');
+    if (patternSelect) {
+        patternSelect.value = params.pattern || 'Random';
+        patternSelect.addEventListener('change', e => {
+            params.pattern = e.target.value;
+            // Update all existing fish patterns
+            if (window.fishArray) {
+                window.fishArray.forEach(fish => {
+                    if (fish.setupPattern) fish.setupPattern();
+                });
+            }
+        });
+    }
+    
+    // Sync advanced controls with normal controls
+    const syncAdvancedControls = () => {
+        // Fish controls
+        const syncControl = (normalId, advId, paramKey) => {
+            const normalInp = document.getElementById(normalId);
+            const advInp = document.getElementById(advId);
+            const normalDisp = document.getElementById(normalId.replace('inp-', 'val-'));
+            const advDisp = document.getElementById(advId.replace('inp-', 'val-'));
+            
+            if (normalInp && advInp) {
+                // Initialize advanced control with current value
+                advInp.value = params[paramKey] || normalInp.value;
+                if (advDisp) advDisp.textContent = advInp.value;
+                
+                // Sync normal -> advanced
+                normalInp.addEventListener('input', () => {
+                    if (advInp) {
+                        advInp.value = normalInp.value;
+                        if (advDisp) advDisp.textContent = normalInp.value;
+                    }
+                    params[paramKey] = parseFloat(normalInp.value);
+                });
+                
+                // Sync advanced -> normal
+                advInp.addEventListener('input', () => {
+                    if (normalInp) {
+                        normalInp.value = advInp.value;
+                        if (normalDisp) normalDisp.textContent = advInp.value;
+                    }
+                    params[paramKey] = parseFloat(advInp.value);
+                });
+            }
+        };
+        
+        syncControl('inp-bodyWidth', 'inp-bodyWidth-adv', 'bodyWidth');
+        syncControl('inp-spotSize', 'inp-spotSize-adv', 'spotSize');
+        syncControl('inp-wiggle', 'inp-wiggle-adv', 'wiggle');
+        syncControl('inp-predatorBodyWidth', 'inp-predatorBodyWidth-adv', 'predatorBodyWidth');
+        syncControl('inp-predatorWiggle', 'inp-predatorWiggle-adv', 'predatorWiggle');
+    };
+    
+    syncAdvancedControls();
     
     const boatControlModeSelect = document.getElementById('inp-boatControlMode');
     if (boatControlModeSelect) {
@@ -389,6 +448,7 @@ export function initUI(callbacks) {
             if(document.getElementById('inp-padFormation')) document.getElementById('inp-padFormation').value = params.padFormation;
             if(document.getElementById('inp-flowerType')) document.getElementById('inp-flowerType').value = params.flowerType;
             if(document.getElementById('inp-birthMode')) document.getElementById('inp-birthMode').value = params.birthMode;
+            if(document.getElementById('inp-pattern')) document.getElementById('inp-pattern').value = params.pattern || 'Random';
             if(document.getElementById('inp-rainMode')) document.getElementById('inp-rainMode').checked = params.rainMode;
             if(document.getElementById('inp-fishJumpEnabled')) document.getElementById('inp-fishJumpEnabled').checked = params.fishJumpEnabled;
             if(document.getElementById('inp-targetFPS') && params.targetFPS) document.getElementById('inp-targetFPS').value = params.targetFPS;
