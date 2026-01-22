@@ -15,6 +15,7 @@ import { PredatorFish } from './entities/PredatorFish.js';
 import { Crocodile } from './entities/Crocodile.js';
 import { Turtle, setAddRippleFunction as setTurtleAddRipple } from './entities/Turtle.js';
 import { Snail, setAddRippleFunction as setSnailAddRipple } from './entities/Snail.js';
+import { Boat, setAddRippleFunction as setBoatAddRipple, updateWakeRipples, drawWakeRipples } from './entities/Boat.js';
 import { initCanvases, resize, renderStaticBackground, animate, setEntities } from './managers/RenderManager.js';
 import { initUI } from './ui/UIManager.js';
 
@@ -28,6 +29,10 @@ let pads = [];
 let stones = [];
 let frogs = [];
 let grass = [];
+let boats = [];
+
+// Boat wake ripples (simple array like the example)
+let boatWakeRipples = [];
 
 // Stats
 let birthCount = { count: 0 };
@@ -237,9 +242,40 @@ function initCrocodiles() {
     updateEntityReferences();
 }
 
+// Initialize boats
+function initBoats() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    
+    boats = [];
+    const boatCount = params.boatCount || 1;
+    
+    for (let i = 0; i < boatCount; i++) {
+        // Spawn boats in random locations, avoiding edges
+        const x = rand(w * 0.2, w * 0.8);
+        const y = rand(h * 0.2, h * 0.8);
+        const boat = new Boat(x, y, boatWakeRipples);
+        
+        // Set control mode from params
+        boat.setControlMode(params.boatControlMode || 'auto');
+        
+        boats.push(boat);
+    }
+    
+    // Update entity references
+    updateEntityReferences();
+}
+
+// Update boat control modes (called when control mode changes)
+function updateBoatControlModes() {
+    boats.forEach(boat => {
+        boat.setControlMode(params.boatControlMode || 'auto');
+    });
+}
+
 // Update entity references in RenderManager
 function updateEntityReferences() {
-    setEntities({ fish, predators, crocodiles, turtles, snails, pads, stones, frogs, grass }, birthCount, mousePos, mouseActive);
+    setEntities({ fish, predators, crocodiles, turtles, snails, pads, stones, frogs, grass, boats, boatWakeRipples }, birthCount, mousePos, mouseActive);
 }
 
 // Add ripple and scatter nearby fish
@@ -302,6 +338,7 @@ function init() {
     setKoiAddRipple(addRipple);
     setTurtleAddRipple(addRipple);
     setSnailAddRipple(addRipple);
+    setBoatAddRipple(addRipple);
     
     // Resize canvases
     resize(() => {
@@ -315,6 +352,7 @@ function init() {
     initCrocodiles();
     initTurtles();
     initSnails();
+    initBoats();
     
     // Initialize UI
     initUI({
@@ -324,8 +362,12 @@ function init() {
         initCrocodiles,
         initTurtles,
         initSnails,
+        initBoats,
         renderStaticBackground
     });
+    
+    // Expose updateBoatControlModes for UI
+    window.updateBoatControlModes = updateBoatControlModes;
     
     // Start animation
     requestAnimationFrame((t) => animate(t, addRipple));
@@ -386,6 +428,26 @@ window.addEventListener('mousemove', e => {
 
 window.addEventListener('mouseleave', () => {
     mouseActive = false;
+});
+
+// Keyboard controls for boats
+window.addEventListener('keydown', e => {
+    // Only handle boat controls if keyboard mode is enabled
+    if (params.boatControlMode === 'keyboard' && boats.length > 0) {
+        // Control the first boat (or all boats if multiple)
+        boats.forEach(boat => {
+            boat.setKeyState(e.key, true);
+        });
+    }
+});
+
+window.addEventListener('keyup', e => {
+    // Only handle boat controls if keyboard mode is enabled
+    if (params.boatControlMode === 'keyboard' && boats.length > 0) {
+        boats.forEach(boat => {
+            boat.setKeyState(e.key, false);
+        });
+    }
 });
 
 // Start the application

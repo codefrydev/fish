@@ -439,6 +439,44 @@
         </div>
     </div>
 
+    <h3>Boat</h3>
+    <div class="control-group">
+        <div class="control-label">Boat Count <span id="val-boatCount" class="val-display"></span></div>
+        <input type="range" id="inp-boatCount" min="0" max="5" step="1">
+        
+        <div class="control-label">Speed <span id="val-boatSpeed" class="val-display"></span></div>
+        <input type="range" id="inp-boatSpeed" min="0.5" max="5" step="0.1">
+        
+        <div class="control-label">Boat Size <span id="val-boatSize" class="val-display"></span></div>
+        <input type="range" id="inp-boatSize" min="0.5" max="2.0" step="0.1">
+        
+        <div class="control-label">Paddle Size <span id="val-boatPaddleSize" class="val-display"></span></div>
+        <input type="range" id="inp-boatPaddleSize" min="0.5" max="2.5" step="0.1">
+        
+        <div class="control-label">Paddle Length <span id="val-boatPaddleLength" class="val-display"></span></div>
+        <input type="range" id="inp-boatPaddleLength" min="0.1" max="1.0" step="0.1">
+        
+        <div class="control-label">Rowing Tempo <span id="val-boatRowingTempo" class="val-display"></span></div>
+        <input type="range" id="inp-boatRowingTempo" min="0.2" max="3.0" step="0.1">
+        
+        <div class="control-label">Wake Intensity <span id="val-boatWakeIntensity" class="val-display"></span></div>
+        <input type="range" id="inp-boatWakeIntensity" min="0" max="1" step="0.1">
+        
+        <div class="control-label">Ripple Life <span id="val-boatRippleLife" class="val-display"></span></div>
+        <input type="range" id="inp-boatRippleLife" min="0.5" max="5.0" step="0.1">
+        
+        <div class="control-label">Control Mode</div>
+        <select id="inp-boatControlMode">
+            <option value="auto">Auto (Meandering)</option>
+            <option value="keyboard">Keyboard (WASD/Arrows)</option>
+        </select>
+        
+        <div class="control-label" style="margin-top: 8px; align-items:center;">
+            <span>Scare Fish</span>
+            <input type="checkbox" id="inp-boatScareFish" style="width:auto; height:auto; margin:0;">
+        </div>
+    </div>
+
     <h3 style="cursor: pointer; user-select: none;" id="toggle-advanced">
         Advanced Settings <span style="font-size: 10px; opacity: 0.6;">(click to expand)</span>
     </h3>

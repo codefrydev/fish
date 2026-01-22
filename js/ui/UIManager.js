@@ -9,6 +9,7 @@ let initPredatorsCallback = null;
 let initCrocodilesCallback = null;
 let initTurtlesCallback = null;
 let initSnailsCallback = null;
+let initBoatsCallback = null;
 let renderStaticBackgroundCallback = null;
 
 // Initialize dual range sliders
@@ -74,6 +75,7 @@ export function initUI(callbacks) {
     initCrocodilesCallback = callbacks.initCrocodiles;
     initTurtlesCallback = callbacks.initTurtles;
     initSnailsCallback = callbacks.initSnails;
+    initBoatsCallback = callbacks.initBoats;
     renderStaticBackgroundCallback = callbacks.renderStaticBackground;
     
     // Menu Toggle Logic
@@ -111,6 +113,9 @@ export function initUI(callbacks) {
         'snailCount', 'snailSizeMin', 'snailSizeMax',
         'snailSpeedMin', 'snailSpeedMax', 'snailDetectionRange',
         'snailRetractDuration', 'snailCrawlSpeed', 'snailSwimChance', 'snailSwimDuration',
+        'boatCount', 'boatSpeed', 'boatSize', 'boatPaddleSize', 'boatPaddleLength',
+        'boatRowingTempo', 'boatWakeIntensity', 'boatRippleLife',
+        'boatMaxSpeed', 'boatRotationSpeed', 'boatAcceleration', 'boatFriction',
         // Advanced Settings
         'fishBaseSpeedMin', 'fishBaseSpeedMax',
         'fishThicknessHead', 'fishThicknessNeck', 'fishThicknessTaper',
@@ -195,6 +200,9 @@ export function initUI(callbacks) {
                 if(key === 'snailCount' || key.includes('snailSize')) {
                     if (initSnailsCallback) initSnailsCallback();
                 }
+                if(key === 'boatCount' || key.includes('boatControlMode')) {
+                    if (initBoatsCallback) initBoatsCallback();
+                }
             });
         }
     });
@@ -223,6 +231,20 @@ export function initUI(callbacks) {
         birthModeSelect.value = params.birthMode;
         birthModeSelect.addEventListener('change', e => {
             params.birthMode = e.target.value;
+        });
+    }
+    
+    const boatControlModeSelect = document.getElementById('inp-boatControlMode');
+    if (boatControlModeSelect) {
+        boatControlModeSelect.value = params.boatControlMode || 'auto';
+        boatControlModeSelect.addEventListener('change', e => {
+            params.boatControlMode = e.target.value;
+            // Try to update existing boats without reinitializing
+            if (window.updateBoatControlModes) {
+                window.updateBoatControlModes();
+            } else if (initBoatsCallback) {
+                initBoatsCallback();
+            }
         });
     }
 
@@ -278,6 +300,12 @@ export function initUI(callbacks) {
     if (jumpEnabledCheck) {
         jumpEnabledCheck.checked = params.fishJumpEnabled;
         jumpEnabledCheck.addEventListener('change', e => { params.fishJumpEnabled = e.target.checked; });
+    }
+
+    const boatScareFishCheck = document.getElementById('inp-boatScareFish');
+    if (boatScareFishCheck) {
+        boatScareFishCheck.checked = params.boatScareFish !== false;
+        boatScareFishCheck.addEventListener('change', e => { params.boatScareFish = e.target.checked; });
     }
 
     // Target FPS selector

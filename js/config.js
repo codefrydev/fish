@@ -327,7 +327,23 @@ export const params = {
     crocodileOutlineAlpha: 0.4,
     crocodileOutlineWidth: 0.08,
     crocodileEyeSizeRatio: 1.8,
-    crocodileEyeGlowIntensity: 1.0
+    crocodileEyeGlowIntensity: 1.0,
+    
+    // Boat settings
+    boatCount: 1,
+    boatSpeed: 0.7,
+    boatSize: 1.0,
+    boatPaddleSize: 1.0,
+    boatPaddleLength: 0.5,
+    boatRowingTempo: 0.4,
+    boatWakeIntensity: 0.2,
+    boatRippleLife: 3.6,
+    boatControlMode: 'auto', // 'auto' or 'keyboard'
+    boatScareFish: true,
+    boatMaxSpeed: 6,
+    boatRotationSpeed: 0.04,
+    boatAcceleration: 0.05,
+    boatFriction: 0.98
 };
 
 // Render culling margin
