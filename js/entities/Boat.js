@@ -60,7 +60,7 @@ export class Boat {
         this.controlMode = mode;
     }
     
-    update(dt, fishList = []) {
+    update(dt, fishList = [], boatList = []) {
         const scale = dt * 60; // Normalize to 60 FPS
         
         // Get current config values
@@ -122,6 +122,59 @@ export class Boat {
             const time = this.autoTime * 0.0005;
             const turn = Math.sin(time) * 0.01 + (Math.sin(time * 2.5) * 0.005);
             this.angle += turn * scale;
+        }
+        
+        // Boat-to-boat collision avoidance (prevent boats from overlapping)
+        // Do this BEFORE position update to prevent overlap
+        if (boatList && boatList.length > 1) {
+            const boatRadius = 30 * boatSize; // Approximate boat radius
+            const minDistance = boatRadius * 2.5; // Minimum distance between boats
+            
+            for (const otherBoat of boatList) {
+                if (otherBoat === this) continue;
+                
+                const dx = this.pos.x - otherBoat.pos.x;
+                const dy = this.pos.y - otherBoat.pos.y;
+                const distSq = dx * dx + dy * dy;
+                const minDistSq = minDistance * minDistance;
+                
+                if (distSq < minDistSq && distSq > 0) {
+                    // Boats are too close - apply separation force
+                    const dist = Math.sqrt(distSq);
+                    const separationStrength = (1 - dist / minDistance) * 2.0; // Stronger when closer
+                    
+                    // Calculate separation direction
+                    let separation = new Vector(dx / dist, dy / dist);
+                    separation.mult(separationStrength);
+                    
+                    // Apply separation by adjusting angle and reducing speed
+                    const avoidanceAngle = Math.atan2(separation.y, separation.x);
+                    let angleDiff = avoidanceAngle - this.angle;
+                    
+                    // Normalize angle difference to -PI to PI
+                    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                    
+                    // Turn away from other boat
+                    if (Math.abs(angleDiff) > 0.1) {
+                        if (angleDiff > 0) {
+                            this.angle += this.rotationSpeed * scale * 2;
+                        } else {
+                            this.angle -= this.rotationSpeed * scale * 2;
+                        }
+                    }
+                    
+                    // Reduce speed when too close
+                    this.speed *= 0.8;
+                    
+                    // Push boats apart if they're very close (immediate separation)
+                    if (dist < boatRadius * 1.5) {
+                        const pushStrength = (1 - dist / (boatRadius * 1.5)) * 5;
+                        this.pos.x += separation.x * pushStrength;
+                        this.pos.y += separation.y * pushStrength;
+                    }
+                }
+            }
         }
         
         // Apply friction

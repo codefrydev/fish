@@ -310,20 +310,6 @@ export function animate(currentTime, addRippleFn) {
     // Update and draw fish BEFORE lily pads (fish swim under pads)
     fish.forEach(f => f.run(fish, activeFoods, dt)); 
 
-    // Update and draw boats (float on surface, after fish but before lily pads)
-    if (boats) {
-        boats.forEach(boat => {
-            boat.update(dt, fish);
-            boat.draw(ctx);
-        });
-    }
-    
-    // Update and draw boat wake ripples (simple system like the example)
-    if (boatWakeRipples && boatWakeRipples.length > 0) {
-        updateWakeRipples(boatWakeRipples, dt);
-        drawWakeRipples(boatWakeRipples, ctx);
-    }
-
     // Update and draw predators (also under lily pads)
     predators.forEach(p => {
         p.update(fish, dt);
@@ -353,6 +339,20 @@ export function animate(currentTime, addRippleFn) {
 
     // Draw lily pads on top of fish
     pads.forEach(pad => pad.draw(ctx));
+    
+    // Update and draw boats (float on surface, AFTER lily pads so they appear on top)
+    if (boats) {
+        boats.forEach(boat => {
+            boat.update(dt, fish, boats);
+            boat.draw(ctx);
+        });
+    }
+    
+    // Update and draw boat wake ripples (simple system like the example)
+    if (boatWakeRipples && boatWakeRipples.length > 0) {
+        updateWakeRipples(boatWakeRipples, dt);
+        drawWakeRipples(boatWakeRipples, ctx);
+    }
     
     // Update and Draw Frogs (swap-and-pop for removal)
     for (let i = frogs.length - 1; i >= 0; i--) {
